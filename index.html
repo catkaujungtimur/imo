@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dokumentasi Dinas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#1b1f24;--mu:#6b7280;--pr:#e8590c;--ok:#16a34a;--bd:#e3e6ea}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+header{background:#1b1f24;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+header h1{font-size:17px;margin:0}
+main{max-width:640px;margin:0 auto;padding:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+label.l{display:block;font-size:12px;color:var(--mu);margin-bottom:4px}
+input,select,button{font:inherit}
+input[type=text],input[type=number],select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:#fff}
+.row{display:flex;gap:8px}.row>*{flex:1}
+button,.btn{background:var(--pr);color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:600;cursor:pointer;display:inline-block;text-align:center}
+button.sec,.btn.sec{background:#e5e7eb;color:var(--tx)}
+button.dng{background:#fee2e2;color:#b91c1c}
+button:disabled{opacity:.5}
+.me b{font-size:17px}.me span{color:var(--mu)}
+.day{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--bd);border-radius:10px;margin-bottom:6px;background:#fff;cursor:pointer}
+.day .d{min-width:62px;font-weight:700}
+.day .d small{display:block;font-weight:400;color:var(--mu)}
+.day .k{flex:1}
+.day .s{font-size:12px;padding:3px 8px;border-radius:99px;background:#eef0f3;color:var(--mu);white-space:nowrap}
+.day.ok .s{background:#dcfce7;color:var(--ok)}
+.day.part .s{background:#fef3c7;color:#b45309}
+.day.off{opacity:.55}
+.sun .d{color:#dc2626}
+.msg{font-size:13px;color:var(--mu);margin:6px 0}
+.err{color:#b91c1c}
+dialog{width:min(560px,94vw);border:0;border-radius:14px;padding:14px}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+.slot{border:1px dashed #c7ccd3;border-radius:10px;padding:10px;margin:10px 0}
+.slot img{max-width:100%;max-height:260px;display:block;margin:8px auto;border-radius:6px}
+.slot .a{display:flex;gap:8px;margin-top:6px}
+input[type=file]{display:none}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header><h1>📋 Dokumentasi Dinas</h1><button class="sec" id="gear">⚙︎</button></header>
+<main>
+
+<div class="card hide" id="settings">
+  <label class="l">Link CSV roster (Google Sheets → Publish to web → CSV)</label>
+  <input type="text" id="csvUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv">
+  <div class="row" style="margin-top:8px">
+    <button id="saveUrl">Simpan link</button>
+    <label class="btn sec">Muat dari file CSV<input type="file" id="csvFile" accept=".csv,text/csv"></label>
+  </div>
+  <div class="msg">Kosongkan link untuk memakai data contoh (demo).</div>
+  <hr style="border:0;border-top:1px solid var(--bd);margin:12px 0">
+  <div class="row">
+    <button class="sec" id="bkp">⬇︎ Cadangkan data</button>
+    <label class="btn sec">⬆︎ Pulihkan data<input type="file" id="rst" accept=".json,application/json"></label>
+  </div>
+  <div class="msg">Foto tersimpan di browser perangkat ini. Cadangkan sebelum ganti HP/laptop.</div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div><label class="l">NIPP</label><input type="text" id="nipp" inputmode="numeric" placeholder="mis. 53595"></div>
+    <div><label class="l">Bulan roster</label><select id="mon"></select></div>
+    <div style="max-width:90px"><label class="l">Tahun</label><input type="number" id="yr"></div>
+  </div>
+  <div class="msg" id="status"></div>
+</div>
+
+<div class="card me hide" id="me"></div>
+<div id="list"></div>
+<div class="card hide" id="pdfBox">
+  <button id="pdfBtn" style="width:100%">📄 Buat PDF bulan ini</button>
+  <div class="msg" id="pdfMsg"></div>
+</div>
+</main>
+
+<dialog id="dlg"></dialog>
+
+<script>
+/* ================== PENGATURAN ================== */
+const DEFAULT_CSV_URL = ""; // isi dengan link "Publish to web (CSV)" agar semua orang langsung terhubung
+
+const KODE = {
+  "1":"Kepala Stasiun","2":"Wakil Kepala Stasiun","3":"SPV Perka","4":"SPV Pelkom","5":"SPV CC",
+  "6":"PPKA Pagi","7":"PPKA Siang","8":"PPKA Malam","A":"Melopen",
+  "9":"PRS A Pagi","10":"PRS A Siang","11":"PRS A Malam",
+  "12":"PRS B Pagi","13":"PRS B Siang","14":"PRS B Malam",
+  "15":"PLR 1 Pagi","16":"PLR 1 Siang","17":"PLR 1 Malam",
+  "18":"PLR 2 Pagi","19":"PLR 2 Siang","20":"PLR 2 Malam",
+  "21":"ADM Pagi","22":"ADM Siang","23":"ADM Malam","33":"PPKW"
+};
+// kode non-dinas biasa. off=true: tidak dihitung "belum lengkap"
+const STATUS = {
+  "L":{t:"Libur",off:true},"CT":{t:"Cuti",off:true},"DIKLAT":{t:"Diklat",off:true},"DIKLAT PENGENDALI":{t:"Diklat",off:true},
+  "REST":{t:"Istirahat",off:true},"JOCUP":{t:"JOCUP",off:true},"BKS":{t:"BKS",off:true},
+  "SOE":{t:"Safety Operation Engagement",off:false},
+  "PRS":{t:"Dinas Wakilan PRS",off:false},"PLR":{t:"Dinas Wakilan PLR",off:false}
+};
+const BULAN=["JANUARI","FEBRUARI","MARET","APRIL","MEI","JUNI","JULI","AGUSTUS","SEPTEMBER","OKTOBER","NOVEMBER","DESEMBER"];
+const HARI=["MINGGU","SENIN","SELASA","RABU","KAMIS","JUMAT","SABTU"];
+
+function info(code){
+  const c=(code||"").trim().toUpperCase();
+  if(!c||c==="-") return {label:"-",off:true,empty:true};
+  if(STATUS[c]) return {label:STATUS[c].t,off:STATUS[c].off};
+  if(KODE[c]) return {label:KODE[c],off:false};
+  const m=c.match(/^(\d+)A$/);
+  if(m&&KODE[m[1]]) return {label:KODE[m[1]]+" (A)",off:false};
+  return {label:c,off:false};
+}
+const kegiatan=l=>/pagi|siang|malam/i.test(l)?"DINAS "+l.match(/pagi|siang|malam/i)[0].toUpperCase():l.toUpperCase();
+
+/* ================== PENYIMPANAN (IndexedDB) ================== */
+const DB=new Promise((res,rej)=>{const q=indexedDB.open("dokdinas",1);q.onupgradeneeded=()=>q.result.createObjectStore("e");q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)});
+const tx=async(mode,fn)=>{const db=await DB;return new Promise((res,rej)=>{const t=db.transaction("e",mode);const r=fn(t.objectStore("e"));t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error)})};
+const dbGet=k=>tx("readonly",s=>s.get(k));
+const dbPut=(k,v)=>tx("readwrite",s=>s.put(v,k));
+const dbDel=k=>tx("readwrite",s=>s.delete(k));
+const dbAll=()=>new Promise(async res=>{const db=await DB;const o={};const c=db.transaction("e").objectStore("e").openCursor();c.onsuccess=()=>{const x=c.result;if(x){o[x.key]=x.value;x.continue()}else res(o)}});
+const pad=n=>String(n).padStart(2,"0");
+const keyOf=(nipp,y,m,d)=>`${nipp}|${y}-${pad(m+1)}-${pad(d)}`;
+
+/* ================== ROSTER ================== */
+let ROSTER=null; // {people:{nipp:[{nama,jab,days[]}]}, month, year}
+const $=id=>document.getElementById(id);
+const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){}};
+
+function parseCSV(t){const r=[];let row=[],c="",q=false;for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}else if(ch=='"')q=true;else if(ch==','){row.push(c);c=""}else if(ch=='\n'||ch=='\r'){if(ch=='\r'&&t[i+1]=='\n')i++;row.push(c);r.push(row);row=[];c=""}else c+=ch}row.push(c);r.push(row);return r}
+
+function buildRoster(text){
+  const rows=parseCSV(text);
+  const hi=rows.findIndex(r=>r.some(c=>c.trim().toUpperCase()==="NIPP"));
+  if(hi<0) throw new Error("Header 'NIPP' tidak ditemukan di CSV.");
+  const H=rows[hi].map(c=>c.trim().toUpperCase());
+  const ni=H.indexOf("NIPP"),nm=H.indexOf("NAMA"),jb=H.indexOf("JABATAN");
+  if(jb<0) throw new Error("Kolom 'JABATAN' tidak ditemukan.");
+  const d0=jb+1;
+  const head=rows.slice(0,hi+1).flat().join(" ").toUpperCase();
+  let month=null,year=null;
+  BULAN.forEach((b,i)=>{if(head.includes(b))month=i});
+  const ym=head.match(/20\d\d/); if(ym) year=+ym[0];
+  const people={};
+  for(const r of rows.slice(hi+1)){
+    const n=(r[ni]||"").trim();
+    if(!/^\d{4,}$/.test(n)) continue;
+    (people[n]=people[n]||[]).push({nama:(r[nm]||"").trim(),jab:(r[jb]||"").trim(),days:r.slice(d0,d0+31).map(x=>x.trim())});
+  }
+  return {people,month,year};
+}
+// Jika satu NIPP muncul di >1 baris (mis. dinas wakilan), utamakan kode dinas angka daripada label PRS/PLR
+function codeFor(nipp,day){
+  const rs=(ROSTER&&ROSTER.people[nipp])||[];
+  const c=rs.map(r=>r.days[day-1]||"").filter(Boolean);
+  return c.find(x=>!/^(PRS|PLR)$/i.test(x))||c[0]||"";
+}
+
+function demoCSV(){
+  const pat=(s,o)=>Array.from({length:31},(_,i)=>{const d=i+1;const c=s[(i+o)%s.length];return c}).join(",");
+  const L=(a)=>a.join(",");
+  return [
+    ",,ROSTER DINAS STASIUN BESAR C KETAPANG (DATA CONTOH)",
+    ",,BULAN NOVEMBER 2026",
+    ",,NAMA,NIPP,GRADE,JABATAN,"+Array.from({length:31},(_,i)=>i+1).join(","),
+    ",,AKHMAD FADLI,53595,6,PPKA,"+pat(["8","7","6","8","7","6","L"],0),
+    ",,TEGUH EKO PRASETYO,69478,6,PPKA,"+pat(["7","6","L","8","7","6","8"],1),
+    ",,MACHRUS IZUNNAHDI,71510,5,PRS,"+pat(["11","10","9","14","13","12","L"],0),
+    ",,DENY PRASTYO,65002,5,PRS,"+pat(["9","10","11","L","12","13","14"],2),
+    ",,QOMARIK AL FARUQ,69471,5,PLR,"+pat(["15","16","17","L","20","19","18"],3)
+  ].join("\n");
+}
+
+async function loadRoster(){
+  const url=LS("csvUrl")||DEFAULT_CSV_URL;
+  let text=null,src="";
+  if(!url){text=demoCSV();src="Data contoh (demo). Isi link CSV di ⚙︎."}
+  else{
+    try{
+      const r=await fetch(url+(url.includes("?")?"&":"?")+"t="+Date.now());
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      text=await r.text(); LS("csvCache",text); src="Roster dimuat dari Google Sheets ✓";
+    }catch(e){
+      text=LS("csvCache"); src=text?"Offline: memakai roster tersimpan terakhir.":"";
+      if(!text){setStatus("Gagal memuat roster: "+e.message,true);return}
+    }
+  }
+  try{ROSTER=buildRoster(text)}catch(e){setStatus(e.message,true);return}
+  if(ROSTER.month!=null&&!LS("monLocked")) $("mon").value=ROSTER.month;
+  if(ROSTER.year&&!LS("monLocked")) $("yr").value=ROSTER.year;
+  setStatus(src);
+  await render();
+}
+function setStatus(t,e){const s=$("status");s.textContent=t;s.className="msg"+(e?" err":"")}
+
+/* ================== TAMPILAN ================== */
+const sel=()=>({nipp:$("nipp").value.trim(),m:+$("mon").value,y:+$("yr").value});
+const live=()=>ROSTER&&ROSTER.month===sel().m&&ROSTER.year===sel().y;
+
+async function render(){
+  const {nipp,m,y}=sel();
+  LS("nipp",nipp);
+  const list=$("list");list.innerHTML="";
+  ["me","pdfBox"].forEach(i=>$(i).classList.add("hide"));
+  if(!ROSTER||!nipp) return;
+  const rs=ROSTER.people[nipp];
+  if(!rs){ if(!nipp) return; list.innerHTML='<div class="card err">NIPP tidak ditemukan di roster.</div>';return}
+  $("me").innerHTML=`<b>${rs[0].nama}</b><br><span>NIPP ${nipp} · ${rs[0].jab} · ${BULAN[m]} ${y}</span>`;
+  $("me").classList.remove("hide");$("pdfBox").classList.remove("hide");
+  const n=new Date(y,m+1,0).getDate();
+  const all=await dbAll();
+  let done=0,need=0;
+  for(let d=1;d<=n;d++){
+    const e=all[keyOf(nipp,y,m,d)];
+    const code=live()?codeFor(nipp,d):(e&&e.kode)||"";
+    if(live()&&e&&e.kode!==code){e.kode=code;await dbPut(keyOf(nipp,y,m,d),e)}
+    const inf=info(code);
+    const has=e&&(e.serah||(e.fotos&&e.fotos.some(Boolean)));
+    const full=e&&e.serah&&e.fotos&&e.fotos.some(Boolean);
+    if(!inf.off){need++;if(full)done++}
+    const dow=new Date(y,m,d).getDay();
+    const div=document.createElement("div");
+    div.className="day "+(inf.off&&!has?"off ":"")+(dow===0?"sun ":"")+(full?"ok":has?"part":"");
+    div.innerHTML=`<div class="d">${d} ${BULAN[m].slice(0,3)}<small>${HARI[dow]}</small></div><div class="k">${inf.label}</div><div class="s">${full?"Lengkap ✓":has?"Sebagian":inf.off?"—":"Belum"}</div>`;
+    div.onclick=()=>openDay(d);
+    list.appendChild(div);
+  }
+  $("pdfMsg").textContent=`Dinas lengkap: ${done} dari ${need}. PDF hanya memuat hari yang sudah ada isinya.`;
+}
+
+async function compress(file,max,q=.75){
+  return new Promise((res,rej)=>{
+    const img=new Image(),u=URL.createObjectURL(file);
+    img.onload=()=>{
+      const s=Math.min(1,max/Math.max(img.width,img.height));
+      const c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
+      const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(u);res(c.toDataURL("image/jpeg",q));
+    };
+    img.onerror=()=>rej(new Error("Gambar tidak bisa dibaca"));img.src=u;
+  });
+}
+
+async function openDay(d){
+  const {nipp,m,y}=sel(),k=keyOf(nipp,y,m,d);
+  const dlg=$("dlg");
+  const dow=new Date(y,m,d).getDay();
+  async function draw(){
+    const e=(await dbGet(k))||{serah:null,fotos:[null,null]};
+    const code=live()?codeFor(nipp,d):e.kode||"";
+    const inf=info(code);
+    const slot=(id,title,img,max)=>`<div class="slot"><b>${title}</b>${img?`<img src="${img}">`:'<div class="msg">Belum ada gambar</div>'}
+      <div class="a"><label class="btn sec" style="flex:1">${img?"Ganti":"Pilih / ambil foto"}<input type="file" accept="image/*" data-id="${id}" data-max="${max}"></label>${img?`<button class="dng" data-del="${id}">Hapus</button>`:""}</div></div>`;
+    dlg.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><b>${HARI[dow]}, ${d} ${BULAN[m]} ${y}</b><div class="msg" style="margin:0">${kegiatan(inf.label)}</div></div><button class="sec" id="cls">Tutup</button></div>
+      ${slot("serah","Lembar Serah Terima Dinas",e.serah,1600)}
+      ${slot("f0","Foto Dokumentasi 1",e.fotos[0],1100)}
+      ${slot("f1","Foto Dokumentasi 2 (opsional)",e.fotos[1],1100)}`;
+    $("cls").onclick=()=>dlg.close();
+    dlg.querySelectorAll("input[type=file]").forEach(inp=>inp.onchange=async()=>{
+      if(!inp.files[0]) return;
+      try{
+        const data=await compress(inp.files[0],+inp.dataset.max);
+        const cur=(await dbGet(k))||{serah:null,fotos:[null,null]};
+        if(inp.dataset.id==="serah") cur.serah=data; else cur.fotos[+inp.dataset.id[1]]=data;
+        cur.kode=code; await dbPut(k,cur); await draw(); render();
+      }catch(err){alert(err.message)}
+    });
+    dlg.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
+      const cur=(await dbGet(k))||{serah:null,fotos:[null,null]};
+      const id=b.dataset.del; if(id==="serah")cur.serah=null;else cur.fotos[+id[1]]=null;
+      await dbPut(k,cur); await draw(); render();
+    });
+  }
+  await draw(); dlg.showModal();
+}
+
+/* ================== PDF ================== */
+const dim=src=>new Promise(r=>{const i=new Image();i.onload=()=>r([i.naturalWidth,i.naturalHeight]);i.src=src});
+async function fit(doc,src,x,y,w,h){
+  const [iw,ih]=await dim(src);const s=Math.min(w/iw,h/ih);const W=iw*s,H=ih*s;
+  doc.addImage(src,"JPEG",x+(w-W)/2,y+(h-H)/2,W,H);
+}
+async function makePDF(){
+  const {nipp,m,y}=sel();const rs=ROSTER&&ROSTER.people[nipp];
+  if(!rs) return;
+  const btn=$("pdfBtn");btn.disabled=true;btn.textContent="Membuat PDF…";
+  try{
+    const all=await dbAll();const n=new Date(y,m+1,0).getDate();
+    const items=[];
+    for(let d=1;d<=n;d++){
+      const e=all[keyOf(nipp,y,m,d)];
+      if(e&&(e.serah||(e.fotos&&e.fotos.some(Boolean)))) items.push({d,e,code:live()?codeFor(nipp,d):e.kode||""});
+    }
+    if(!items.length){alert("Belum ada dokumentasi di bulan ini.");return}
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
+    const X=10,W=[32,30,110,105],top=22,hh=9,rowTop=top+hh,rowH=170;
+    let first=true;
+    for(const it of items){
+      if(!first) doc.addPage(); first=false;
+      doc.setFont("helvetica","bold");doc.setFontSize(11);
+      doc.text(`DOKUMENTASI KEGIATAN DINAS - ${rs[0].nama} (NIPP ${nipp}) - ${BULAN[m]} ${y}`,X,14);
+      const xs=[X];W.forEach((w,i)=>xs.push(xs[i]+w));
+      doc.setLineWidth(.3);
+      doc.rect(X,top,277,hh+rowH);
+      xs.slice(1,-1).forEach(x=>doc.line(x,top,x,top+hh+rowH));
+      doc.line(X,rowTop,X+277,rowTop);
+      doc.setFontSize(10);
+      ["Hari, Tanggal","Kegiatan","Serah Terima Dinas","Dokumentasi Kegiatan"].forEach((t,i)=>doc.text(t,xs[i]+W[i]/2,top+6,{align:"center"}));
+      doc.setFont("helvetica","normal");
+      const dow=HARI[new Date(y,m,it.d).getDay()];
+      doc.text([dow+",",String(it.d),BULAN[m],String(y)],xs[0]+W[0]/2,rowTop+10,{align:"center",lineHeightFactor:1.5});
+      doc.text(doc.splitTextToSize(kegiatan(info(it.code).label),W[1]-4),xs[1]+W[1]/2,rowTop+10,{align:"center"});
+      if(it.e.serah) await fit(doc,it.e.serah,xs[2]+2,rowTop+2,W[2]-4,rowH-4);
+      const fs=(it.e.fotos||[]).filter(Boolean);
+      if(fs.length===1) await fit(doc,fs[0],xs[3]+2,rowTop+2,W[3]-4,rowH-4);
+      else if(fs.length===2){const h=(rowH-6)/2;await fit(doc,fs[0],xs[3]+2,rowTop+2,W[3]-4,h);await fit(doc,fs[1],xs[3]+2,rowTop+4+h,W[3]-4,h)}
+    }
+    doc.save(`Dokumentasi_${rs[0].nama.replace(/\s+/g,"_")}_${nipp}_${BULAN[m]}_${y}.pdf`);
+  }catch(err){alert("Gagal membuat PDF: "+err.message)}
+  finally{btn.disabled=false;btn.textContent="📄 Buat PDF bulan ini"}
+}
+
+/* ================== CADANGAN ================== */
+async function backup(){
+  const all=await dbAll();
+  const blob=new Blob([JSON.stringify(all)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=`cadangan_dokumentasi_${new Date().toISOString().slice(0,10)}.json`;a.click();
+}
+async function restore(file){
+  try{
+    const o=JSON.parse(await file.text());
+    for(const k of Object.keys(o)) await dbPut(k,o[k]);
+    alert("Data berhasil dipulihkan: "+Object.keys(o).length+" entri.");render();
+  }catch(e){alert("File cadangan tidak valid.")}
+}
+
+/* ================== INIT ================== */
+BULAN.forEach((b,i)=>{const o=document.createElement("option");o.value=i;o.textContent=b[0]+b.slice(1).toLowerCase();$("mon").appendChild(o)});
+const now=new Date();
+$("mon").value=now.getMonth();$("yr").value=now.getFullYear();
+$("nipp").value=new URLSearchParams(location.search).get("nipp")||LS("nipp")||"";
+$("csvUrl").value=LS("csvUrl")||DEFAULT_CSV_URL;
+$("gear").onclick=()=>$("settings").classList.toggle("hide");
+$("saveUrl").onclick=()=>{LS("csvUrl",$("csvUrl").value.trim());LS("monLocked","");loadRoster()};
+$("csvFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{ROSTER=buildRoster(await f.text());LS("csvCache",await f.text());if(ROSTER.month!=null)$("mon").value=ROSTER.month;if(ROSTER.year)$("yr").value=ROSTER.year;setStatus("Roster dimuat dari file ✓");render()}catch(err){setStatus(err.message,true)}};
+$("nipp").oninput=render;
+$("mon").onchange=$("yr").onchange=()=>{LS("monLocked","1");render()};
+$("pdfBtn").onclick=makePDF;
+$("bkp").onclick=backup;
+$("rst").onchange=e=>e.target.files[0]&&restore(e.target.files[0]);
+loadRoster();
+</script>
+</body>
+</html>
