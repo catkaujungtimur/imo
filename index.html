@@ -136,10 +136,24 @@ function parseCSV(t){const r=[];let row=[],c="",q=false;for(let i=0;i<t.length;i
 
 function buildRoster(text){
   const rows=parseCSV(text);
-  const hi=rows.findIndex(r=>r.some(c=>c.toUpperCase().includes("NIPP")));
-  if(hi<0) throw new Error("Header 'NIPP' tidak ditemukan di CSV.");
-  const H=rows[hi].map(c=>c.trim().toUpperCase());
-  const ni=H.findIndex(c=>c.includes("NIPP")),nm=H.findIndex(c=>c.includes("NAMA")),jb=H.findIndex(c=>c.includes("JABATAN"));
+  const isNipp=c=>/^\d{4,}$/.test((c||"").trim());
+  let hi=rows.findIndex(r=>r.some(c=>c.toUpperCase().includes("NIPP")));
+  let ni,nm,jb;
+  if(hi>=0){
+    const H=rows[hi].map(c=>c.trim().toUpperCase());
+    ni=H.findIndex(c=>c.includes("NIPP"));nm=H.findIndex(c=>c.includes("NAMA"));jb=H.findIndex(c=>c.includes("JABATAN"));
+  }else{
+    // Google kadang menghilangkan label "NIPP" saat mengirim data. Cari kolom NIPP dari isinya (angka 4+ digit).
+    const cnt={};
+    rows.forEach(r=>r.forEach((c,i)=>{if(isNipp(c))cnt[i]=(cnt[i]||0)+1}));
+    ni=-1;let best=0;
+    for(const k in cnt) if(cnt[k]>best){best=cnt[k];ni=+k}
+    if(ni<1||best<3) throw new Error("Header 'NIPP' tidak ditemukan di CSV.");
+    nm=ni-1;jb=-1;
+    for(const r of rows.slice(0,10)){const j=r.findIndex(c=>c.toUpperCase().includes("JABATAN"));if(j>=0){jb=j;break}}
+    if(jb<0) jb=ni+2;
+    hi=rows.findIndex(r=>isNipp(r[ni]))-1;
+  }
   if(jb<0) throw new Error("Kolom 'JABATAN' tidak ditemukan.");
   const d0=jb+1;
   const head=rows.slice(0,hi+1).flat().join(" ").toUpperCase();
