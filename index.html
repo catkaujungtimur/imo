@@ -40,10 +40,28 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .slot .a{display:flex;gap:8px;margin-top:6px}
 input[type=file]{display:none}
 .hide{display:none}
+header small{display:block;font-weight:400;font-size:12px;opacity:.7}
+header a{color:#fff;text-decoration:none;font-weight:600;margin-right:10px;font-size:14px}
+body.rk main{max-width:none}
+#rekap{overflow-x:auto;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:8px}
+#rekap table{border-collapse:collapse;font-size:12px}
+#rekap th,#rekap td{border:1px solid var(--bd);padding:3px 5px;text-align:center;white-space:nowrap;min-width:24px}
+#rekap th{background:#f3f4f6}
+#rekap td.n,#rekap th.n{text-align:left;position:sticky;left:0;z-index:1;background:#fff;min-width:150px;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+#rekap th.n{background:#f3f4f6;z-index:2}
+#rekap td.n a{color:var(--tx);text-decoration:none;font-weight:600}
+#rekap td.n small{display:block;color:var(--mu);font-weight:400}
+#rekap .ok{background:#dcfce7;color:#166534;font-weight:700}
+#rekap .part{background:#fef3c7;color:#b45309;font-weight:700}
+#rekap .miss{background:#fee2e2;color:#b91c1c;font-weight:700}
+#rekap .off{color:#9ca3af;background:#f9fafb}
+#rekap .wait{color:#d1d5db}
+#rekap th.sun{color:#dc2626}
+#rekap .sum{font-weight:700}
 </style>
 </head>
 <body>
-<header><h1>📋 Dokumentasi Dinas</h1><button class="sec" id="gear">⚙︎</button></header>
+<header><h1>📋 Dokumentasi Dinas<small id="stn"></small></h1><div><a id="lnkRekap" href="#rekap">Rekap</a><button class="sec" id="gear">⚙︎</button></div></header>
 <main>
 
 <div class="card hide" id="settings">
@@ -51,6 +69,10 @@ input[type=file]{display:none}
   <input type="text" id="ssId" placeholder="mis. 1AbCdEf...xyz">
   <label class="l" style="margin-top:8px">Nama tab (kosongkan = otomatis sesuai bulan, mis. "November")</label>
   <input type="text" id="ssTab" placeholder="otomatis">
+  <label class="l" style="margin-top:8px">Alamat Apps Script (Web app URL, berakhiran /exec)</label>
+  <input type="text" id="scUrl" placeholder="https://script.google.com/macros/s/.../exec">
+  <label class="l" style="margin-top:8px">Kunci Apps Script</label>
+  <input type="text" id="scKey" placeholder="sama dengan KUNCI di Code.gs">
   <div class="row" style="margin-top:8px">
     <button id="saveCfg">Simpan &amp; muat ulang</button>
   </div>
@@ -73,7 +95,7 @@ input[type=file]{display:none}
 
 <div class="card">
   <div class="row">
-    <div><label class="l">NIPP</label><input type="text" id="nipp" inputmode="numeric" placeholder="mis. 53595"></div>
+    <div id="nippWrap"><label class="l">NIPP</label><input type="text" id="nipp" inputmode="numeric" placeholder="mis. 53595"></div>
     <div><label class="l">Bulan (tab)</label><select id="mon"></select></div>
     <div style="max-width:90px"><label class="l">Tahun</label><input type="number" id="yr"></div>
   </div>
@@ -82,6 +104,7 @@ input[type=file]{display:none}
 
 <div class="card me hide" id="me"></div>
 <div id="list"></div>
+<div id="rekap" class="hide"></div>
 <div class="card hide" id="pdfBox">
   <button id="pdfBtn" style="width:100%">📄 Buat PDF bulan ini</button>
   <div class="msg" id="pdfMsg"></div>
@@ -92,7 +115,16 @@ input[type=file]{display:none}
 
 <script>
 /* ================== PENGATURAN ================== */
-const DEFAULT_ID = ""; // isi dengan Spreadsheet ID agar semua pegawai langsung terhubung (ganti tiap tahun)
+/* Bagian ini khas satu stasiun. Stasiun lain cukup menyalin web ini lalu mengganti CONFIG dan kamus kode di bawahnya. */
+const CONFIG = {
+  stasiun: "Stasiun Besar C Ketapang",
+  spreadsheetId: "",   // ID spreadsheet roster (ganti tiap tahun, atau lewat ⚙︎)
+  scriptUrl: "",       // alamat Web app Apps Script (berakhiran /exec)
+  kunci: ""            // sama dengan KUNCI di Code.gs
+};
+const DEFAULT_ID = CONFIG.spreadsheetId;
+
+/* Kamus kode dinas (khas stasiun) */
 
 const KODE = {
   "1":"Kepala Stasiun","2":"Wakil Kepala Stasiun","3":"SPV Perka","4":"SPV Pelkom","5":"SPV CC",
@@ -142,9 +174,13 @@ const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorag
 function parseCSV(t,dl){dl=dl||",";const r=[];let row=[],c="",q=false;for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}else if(ch=='"')q=true;else if(ch===dl){row.push(c);c=""}else if(ch=='\n'||ch=='\r'){if(ch=='\r'&&t[i+1]=='\n')i++;row.push(c);r.push(row);row=[];c=""}else c+=ch}row.push(c);r.push(row);return r}
 
 function buildRoster(text){
-  // Hasil salin dari Sheets/Excel dipisah tab; hasil unduh/Google dipisah koma.
-  const dl=(text.match(/\t/g)||[]).length>(text.match(/,/g)||[]).length?"\t":",";
-  const rows=parseCSV(text,dl);
+  // Bisa berupa array baris (dari Apps Script) atau teks. Teks hasil salin Sheets/Excel dipisah tab; hasil unduh/Google dipisah koma.
+  let rows;
+  if(Array.isArray(text)) rows=text.map(r=>r.map(c=>String(c==null?"":c)));
+  else{
+    const dl=(text.match(/\t/g)||[]).length>(text.match(/,/g)||[]).length?"\t":",";
+    rows=parseCSV(text,dl);
+  }
   const isNipp=c=>/^\d{4,}$/.test((c||"").trim());
   let hi=rows.findIndex(r=>r.some(c=>c.toUpperCase().includes("NIPP")));
   let ni,nm,jb;
@@ -169,16 +205,17 @@ function buildRoster(text){
   let month=null,year=null;
   BULAN.forEach((b,i)=>{if(head.includes(b))month=i});
   const ym=head.match(/20\d\d/); if(ym) year=+ym[0];
-  const people={};
+  const people={},order=[];
   for(const r of rows.slice(hi+1)){
     const n=(r[ni]||"").trim();
     if(!/^\d{4,}$/.test(n)) continue;
     const days=r.slice(d0,d0+31).map(x=>x.trim());
     // Sel gabungan (Diklat, JOCUP, Dinas Wakilan PRS/PLR) hanya berisi teks di sel pertama; hari sisanya kosong. Isi dengan kode yang sama.
     for(let i=1;i<days.length;i++) if(!days[i]&&/^(JOCUP|DIKLAT.*|PRS|PLR)$/i.test(days[i-1])) days[i]=days[i-1];
-    (people[n]=people[n]||[]).push({nama:(r[nm]||"").trim(),jab:(r[jb]||"").trim(),days});
+    if(!people[n]){people[n]=[];order.push(n)}
+    people[n].push({nama:(r[nm]||"").trim(),jab:(r[jb]||"").trim(),days});
   }
-  return {people,month,year};
+  return {people,order,month,year};
 }
 // Jika satu NIPP muncul di >1 baris (mis. dinas wakilan), utamakan kode dinas angka daripada label PRS/PLR
 function codeFor(nipp,day){
@@ -224,30 +261,55 @@ async function fetchSheet(id,tab){
   throw new Error(lastErr.message+" Cuplikan dari Google ("+all.length+" baris): "+(peek||"kosong"));
 }
 
+const getScript=()=>(LS("scUrl")||CONFIG.scriptUrl||"").trim();
+const getKey=()=>(LS("scKey")||CONFIG.kunci||"").trim();
+async function callScript(params){
+  const u=getScript();
+  if(!u) throw new Error("Alamat Apps Script belum diisi.");
+  const r=await fetch(u+(u.includes("?")?"&":"?")+new URLSearchParams(params).toString(),{cache:"no-store"});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  const t=await r.text();let j;
+  try{j=JSON.parse(t)}catch(e){throw new Error("Apps Script tidak bisa diakses. Pastikan Deploy sebagai Web app dengan akses 'Anyone'.")}
+  if(!j.ok) throw new Error(j.error||"Apps Script menolak permintaan.");
+  return j;
+}
+// Utama: Apps Script (isi sel lengkap). Cadangan: Google gviz. Hasil keduanya berupa array baris atau teks.
+async function fetchRoster(id,tab){
+  let scErr="";
+  if(getScript()){
+    try{const j=await callScript({action:"roster",id,tab});buildRoster(j.values);return {data:j.values,via:"Apps Script"}}
+    catch(e){scErr=e.message}
+  }
+  try{return {data:await fetchSheet(id,tab),via:"Google Sheets"}}
+  catch(e){throw new Error((scErr?"Apps Script: "+scErr+" | ":"")+e.message)}
+}
+const readCache=k=>{const c=LS(k);if(!c)return null;try{return JSON.parse(c)}catch(e){return c}};
+
 let loadSeq=0;
 async function loadRoster(){
   const seq=++loadSeq,id=getId(),{m,y}=sel(),tab=tabName();
   const pasted=LS(pasteKey(y,m));
-  let text=null,src="";
+  let data=null,src="";
   if(!id){
-    if(pasted){text=pasted;src="Roster dari tempelan (cadangan) ✓"}
-    else{text=demoCSV();src="Data contoh (demo). Isi Spreadsheet ID di ⚙︎ atau tempel roster."}
+    if(pasted){data=pasted;src="Roster dari tempelan (cadangan) ✓"}
+    else{data=demoCSV();src="Data contoh (demo). Isi Spreadsheet ID di ⚙︎ atau tempel roster."}
   }else{
     const ck="csv|"+id+"|"+tab;
     try{
       setStatus('Memuat tab "'+tab+'"…');
-      text=await fetchSheet(id,tab);LS(ck,text);
-      src='Roster tab "'+tab+'" dimuat dari Google Sheets ✓';
+      const r=await fetchRoster(id,tab);
+      data=r.data;LS(ck,JSON.stringify(data));
+      src='Roster tab "'+tab+'" dimuat via '+r.via+' ✓';
     }catch(e){
       let fb="roster tersimpan terakhir";
-      text=LS(ck);
-      if(!text){text=pasted;fb="roster tempelan"}
-      if(!text){if(seq===loadSeq){ROSTER=null;setStatus('Gagal memuat tab "'+tab+'": '+e.message,true);render()}return}
+      data=readCache(ck);
+      if(!data){data=pasted;fb="roster tempelan"}
+      if(!data){if(seq===loadSeq){ROSTER=null;setStatus('Gagal memuat tab "'+tab+'": '+e.message,true);render()}return}
       src="Gagal memuat ("+e.message+"). Memakai "+fb+".";
     }
   }
   if(seq!==loadSeq) return;
-  try{ROSTER=buildRoster(text)}catch(e){ROSTER=null;setStatus(e.message,true);render();return}
+  try{ROSTER=buildRoster(data)}catch(e){ROSTER=null;setStatus(e.message,true);render();return}
   ROSTER.valid=true;let warn="";
   if(id&&ROSTER.month!=null&&(ROSTER.month!==m||(ROSTER.year&&ROSTER.year!==y))){
     ROSTER.valid=false;
@@ -262,15 +324,97 @@ function setStatus(t,e){const s=$("status");s.textContent=t;s.className="msg"+(e
 const sel=()=>({nipp:$("nipp").value.trim(),m:+$("mon").value,y:+$("yr").value});
 const live=()=>!!(ROSTER&&ROSTER.valid);
 
+/* ================== STATUS BERSAMA (Apps Script) ================== */
+const stateOf=e=>{if(!e)return "-";const f=e.fotos&&e.fotos[0];return e.serah&&f?"L":(e.serah||f)?"S":"-"};
+const bulanKey=(y,m)=>y+"-"+pad(m+1);
+const SYNC={msg:"",bad:false};
+function setSync(t,bad){SYNC.msg=t;SYNC.bad=!!bad;const x=$("sync");if(x){x.textContent=t;x.className="msg"+(bad?" err":"")}}
+async function pushStatus(nipp,y,m,d,state){
+  if(!getScript()||!getKey()) return false;
+  const rs=ROSTER&&ROSTER.people[nipp];
+  try{
+    await callScript({action:"set",kunci:getKey(),bulan:bulanKey(y,m),nipp,nama:rs?rs[0].nama:"",hari:d,state});
+    setSync("☁ Status tersinkron ✓");return true;
+  }catch(e){setSync("☁ Status belum terkirim: "+e.message+" (dicoba lagi saat halaman dibuka)",true);return false}
+}
+async function fetchStatus(y,m){
+  const j=await callScript({action:"status",bulan:bulanKey(y,m)});
+  const o={};(j.rows||[]).forEach(r=>{o[r.nipp]=r});return o;
+}
+// Kirim hari-hari yang sudah terisi di perangkat ini tetapi belum tercatat di pusat (mis. tadi offline).
+let syncing=false,skipSync=false;
+async function syncMine(nipp,y,m,all){
+  if(!getScript()||!getKey()||syncing) return;
+  syncing=true;
+  try{
+    const st=await fetchStatus(y,m),mine=(st[nipp]&&st[nipp].d)||[];
+    const n=new Date(y,m+1,0).getDate();let sent=0,fail=0;
+    for(let d=1;d<=n;d++){
+      const s=stateOf(all[keyOf(nipp,y,m,d)]);
+      if(s!=="-"&&s!==(mine[d-1]||"")){(await pushStatus(nipp,y,m,d,s))?sent++:fail++}
+    }
+    if(!fail) setSync(sent?"☁ "+sent+" hari disinkronkan ✓":"☁ Status tersinkron ✓");
+  }catch(e){setSync("☁ Sinkron gagal: "+e.message,true)}
+  finally{syncing=false}
+}
+
+/* ================== REKAP (#rekap) ================== */
+const isRekap=()=>/^rekap$/i.test(location.hash.replace(/^#/,""));
+let rekapSeq=0,ONLYMISS=false;
+async function renderRekap(){
+  const seq=++rekapSeq,box=$("rekap"),{m,y}=sel();
+  const msg=(t,bad)=>{box.innerHTML='<div class="msg'+(bad?" err":"")+'">'+t+'</div>'};
+  if(!ROSTER){msg("Roster belum termuat. Lihat keterangan di atas.",true);return}
+  if(!live()){msg("Roster bulan "+BULAN[m]+" "+y+" belum tersedia.",true);return}
+  if(!getScript()){msg("Rekap membutuhkan Apps Script. Isi alamatnya di ⚙︎ atau di CONFIG.",true);return}
+  msg("Memuat rekap…");
+  let st={},warn="";
+  try{st=await fetchStatus(y,m)}catch(e){warn="Status belum bisa dimuat: "+e.message}
+  if(seq!==rekapSeq) return;
+  const n=new Date(y,m+1,0).getDate(),t=new Date(),tk=new Date(t.getFullYear(),t.getMonth(),t.getDate());
+  let head='<tr><th class="n">Nama</th>',bad=0,body="";
+  for(let d=1;d<=n;d++) head+=`<th class="${new Date(y,m,d).getDay()===0?"sun":""}">${d}</th>`;
+  head+='<th>✓</th><th>✗</th></tr>';
+  for(const nipp of ROSTER.order){
+    const rs=ROSTER.people[nipp],sd=(st[nipp]&&st[nipp].d)||[];
+    let cells="",ok=0,miss=0;
+    for(let d=1;d<=n;d++){
+      const inf=info(codeFor(nipp,d)),s=sd[d-1]||"",past=new Date(y,m,d)<tk;
+      if(inf.off&&!s) cells+=`<td class="off" title="${inf.label}">–</td>`;
+      else if(s==="L"){ok++;cells+=`<td class="ok" title="${inf.label}">✓</td>`}
+      else if(s==="S"){cells+=`<td class="part" title="${inf.label} (sebagian)">½</td>`;if(past)miss++}
+      else if(past){miss++;cells+=`<td class="miss" title="${inf.label}">✗</td>`}
+      else cells+=`<td class="wait" title="${inf.label}">·</td>`;
+    }
+    if(miss) bad++;
+    if(ONLYMISS&&!miss) continue;
+    body+=`<tr><td class="n"><a href="#${nipp}">${rs[0].nama}</a><small>${rs[0].jab}</small></td>${cells}<td class="sum">${ok}</td><td class="sum" style="color:${miss?"#b91c1c":"inherit"}">${miss}</td></tr>`;
+  }
+  box.innerHTML=`<div class="msg" style="margin:0 0 8px"><b>${BULAN[m]} ${y}</b> · ${bad} dari ${ROSTER.order.length} pegawai punya hari kosong/sebagian sampai kemarin.
+    <label style="margin-left:8px"><input type="checkbox" id="onlyMiss" ${ONLYMISS?"checked":""}> hanya yang ada hari kosong</label></div>
+    ${warn?'<div class="msg err">'+warn+'</div>':""}
+    <table>${head}${body||'<tr><td class="n" colspan="'+(n+3)+'">Tidak ada.</td></tr>'}</table>
+    <div class="msg">✓ lengkap · ½ sebagian · ✗ belum diisi (hari yang sudah lewat) · · belum waktunya · – bukan hari wajib (libur, cuti, diklat)</div>`;
+  $("onlyMiss").onchange=e=>{ONLYMISS=e.target.checked;renderRekap()};
+}
+
 async function render(){
   const {nipp,m,y}=sel();
-  LS("nipp",nipp);
+  const rk=isRekap();
+  document.body.classList.toggle("rk",rk);
+  $("rekap").classList.toggle("hide",!rk);
+  $("nippWrap").classList.toggle("hide",rk);
+  $("lnkRekap").textContent=rk?"← Kembali":"Rekap";
+  $("lnkRekap").setAttribute("href",rk?"#"+(LS("nipp")||""):"#rekap");
+  if(!rk) LS("nipp",nipp);
   const list=$("list");list.innerHTML="";
   ["me","pdfBox"].forEach(i=>$(i).classList.add("hide"));
+  if(rk){await renderRekap();return}
   if(!ROSTER||!nipp) return;
   const rs=ROSTER.people[nipp];
   if(!rs){ if(!nipp) return; list.innerHTML='<div class="card err">NIPP tidak ditemukan di roster.</div>';return}
-  $("me").innerHTML=`<b>${rs[0].nama}</b><br><span>NIPP ${nipp} · ${rs[0].jab} · ${BULAN[m]} ${y}</span>`;
+  $("me").innerHTML=`<b>${rs[0].nama}</b><br><span>NIPP ${nipp} · ${rs[0].jab} · ${BULAN[m]} ${y}</span><div class="msg" id="sync"></div>`;
+  setSync(SYNC.msg,SYNC.bad);
   $("me").classList.remove("hide");$("pdfBox").classList.remove("hide");
   const n=new Date(y,m+1,0).getDate();
   const all=await dbAll();
@@ -291,6 +435,7 @@ async function render(){
     list.appendChild(div);
   }
   $("pdfMsg").textContent=`Dinas lengkap: ${done} dari ${need}. PDF hanya memuat hari yang sudah ada isinya.`;
+  if(skipSync) skipSync=false; else syncMine(nipp,y,m,all);
 }
 
 async function compress(file,max,q=.75){
@@ -326,13 +471,13 @@ async function openDay(d){
         const data=await compress(inp.files[0],+inp.dataset.max);
         const cur=(await dbGet(k))||{serah:null,fotos:[null,null]};
         if(inp.dataset.id==="serah") cur.serah=data; else cur.fotos[+inp.dataset.id[1]]=data;
-        cur.kode=code; await dbPut(k,cur); await draw(); render();
+        cur.kode=code; await dbPut(k,cur); pushStatus(nipp,y,m,d,stateOf(cur)); await draw(); skipSync=true; render();
       }catch(err){alert(err.message)}
     });
     dlg.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
       const cur=(await dbGet(k))||{serah:null,fotos:[null,null]};
       const id=b.dataset.del; if(id==="serah")cur.serah=null;else cur.fotos[+id[1]]=null;
-      await dbPut(k,cur); await draw(); render();
+      await dbPut(k,cur); pushStatus(nipp,y,m,d,stateOf(cur)); await draw(); skipSync=true; render();
     });
   }
   await draw(); dlg.showModal();
@@ -413,14 +558,19 @@ async function restore(file){
 BULAN.forEach((b,i)=>{const o=document.createElement("option");o.value=i;o.textContent=b[0]+b.slice(1).toLowerCase();$("mon").appendChild(o)});
 const now=new Date();
 $("mon").value=now.getMonth();$("yr").value=now.getFullYear();
-const fromHash=()=>(location.hash.replace(/^#/,"")||new URLSearchParams(location.search).get("nipp")||"").trim();
+const fromHash=()=>{const h=location.hash.replace(/^#/,"").trim();return /^\d{4,}$/.test(h)?h:(new URLSearchParams(location.search).get("nipp")||"").trim()};
+$("stn").textContent=CONFIG.stasiun;
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 $("nipp").value=fromHash()||LS("nipp")||"";
 $("ssId").value=LS("ssId")||DEFAULT_ID;
 $("ssTab").value=LS("ssTab")||"";
+$("scUrl").value=LS("scUrl")||CONFIG.scriptUrl;
+$("scKey").value=LS("scKey")||CONFIG.kunci;
 $("gear").onclick=()=>$("settings").classList.toggle("hide");
 $("saveCfg").onclick=()=>{
   const raw=$("ssId").value.trim(),mm=raw.match(/\/d\/([\w-]+)/),id=mm?mm[1]:raw;
-  $("ssId").value=id;LS("ssId",id);LS("ssTab",$("ssTab").value.trim());loadRoster();
+  $("ssId").value=id;LS("ssId",id);LS("ssTab",$("ssTab").value.trim());
+  LS("scUrl",$("scUrl").value.trim());LS("scKey",$("scKey").value.trim());loadRoster();
 };
 const pmsg=(t,e)=>{const x=$("pasteMsg");x.textContent=t;x.className="msg"+(e?" err":"")};
 $("pasteUse").onclick=()=>{
@@ -445,7 +595,7 @@ $("nipp").oninput=()=>{
   try{history.replaceState(null,"",v?"#"+v:location.pathname+location.search)}catch(e){}
   render();
 };
-addEventListener("hashchange",()=>{const v=fromHash();if(v&&v!==$("nipp").value.trim()){$("nipp").value=v;render()}});
+addEventListener("hashchange",()=>{const v=fromHash();if(v&&v!==$("nipp").value.trim())$("nipp").value=v;render()});
 $("mon").onchange=$("yr").onchange=loadRoster;
 $("pdfBtn").onclick=makePDF;
 $("bkp").onclick=backup;
