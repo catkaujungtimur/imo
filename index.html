@@ -47,13 +47,15 @@ input[type=file]{display:none}
 <main>
 
 <div class="card hide" id="settings">
-  <label class="l">Link CSV roster (Google Sheets → Publish to web → CSV)</label>
-  <input type="text" id="csvUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv">
+  <label class="l">Spreadsheet ID (boleh tempel link spreadsheet-nya)</label>
+  <input type="text" id="ssId" placeholder="mis. 1AbCdEf...xyz">
+  <label class="l" style="margin-top:8px">Nama tab (kosongkan = otomatis sesuai bulan, mis. "November")</label>
+  <input type="text" id="ssTab" placeholder="otomatis">
   <div class="row" style="margin-top:8px">
-    <button id="saveUrl">Simpan link</button>
+    <button id="saveCfg">Simpan &amp; muat ulang</button>
     <label class="btn sec">Muat dari file CSV<input type="file" id="csvFile" accept=".csv,text/csv"></label>
   </div>
-  <div class="msg">Kosongkan link untuk memakai data contoh (demo).</div>
+  <div class="msg">Spreadsheet harus dibagikan "Anyone with the link – Viewer". Kosongkan ID untuk data contoh (demo). Isi nama tab hanya untuk kasus khusus, karena bila diisi bulan tidak lagi otomatis.</div>
   <hr style="border:0;border-top:1px solid var(--bd);margin:12px 0">
   <div class="row">
     <button class="sec" id="bkp">⬇︎ Cadangkan data</button>
@@ -65,7 +67,7 @@ input[type=file]{display:none}
 <div class="card">
   <div class="row">
     <div><label class="l">NIPP</label><input type="text" id="nipp" inputmode="numeric" placeholder="mis. 53595"></div>
-    <div><label class="l">Bulan roster</label><select id="mon"></select></div>
+    <div><label class="l">Bulan (tab)</label><select id="mon"></select></div>
     <div style="max-width:90px"><label class="l">Tahun</label><input type="number" id="yr"></div>
   </div>
   <div class="msg" id="status"></div>
@@ -83,7 +85,7 @@ input[type=file]{display:none}
 
 <script>
 /* ================== PENGATURAN ================== */
-const DEFAULT_CSV_URL = ""; // isi dengan link "Publish to web (CSV)" agar semua orang langsung terhubung
+const DEFAULT_ID = ""; // isi dengan Spreadsheet ID agar semua pegawai langsung terhubung (ganti tiap tahun)
 
 const KODE = {
   "1":"Kepala Stasiun","2":"Wakil Kepala Stasiun","3":"SPV Perka","4":"SPV Pelkom","5":"SPV CC",
@@ -174,31 +176,57 @@ function demoCSV(){
   ].join("\n");
 }
 
+const BULANTITLE=BULAN.map(b=>b[0]+b.slice(1).toLowerCase());
+const getId=()=>LS("ssId")||DEFAULT_ID;
+const tabName=()=>(LS("ssTab")||"").trim()||BULANTITLE[+$("mon").value];
+const gviz=(id,tab,hd)=>`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}${hd?"&headers=0":""}`;
+
+// Ambil tab dari Google Sheets (format CSV agar huruf seperti L/CT/SOE tidak hilang).
+// Percobaan 1 memakai headers=0 (semua baris dianggap data); jika roster tidak terbaca, coba tanpa itu.
+async function fetchSheet(id,tab){
+  let lastErr;
+  for(const hd of [true,false]){
+    const r=await fetch(gviz(id,tab,hd),{cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const t=await r.text();
+    if(/^\s*</.test(t)) throw new Error("Spreadsheet tidak bisa diakses. Cek ID dan pastikan dibagikan 'Anyone with the link' (Viewer).");
+    try{buildRoster(t);return t}catch(e){lastErr=e}
+  }
+  throw lastErr;
+}
+
+let loadSeq=0;
 async function loadRoster(){
-  const url=LS("csvUrl")||DEFAULT_CSV_URL;
+  const seq=++loadSeq,id=getId(),{m,y}=sel(),tab=tabName();
   let text=null,src="";
-  if(!url){text=demoCSV();src="Data contoh (demo). Isi link CSV di ⚙︎."}
+  if(!id){text=demoCSV();src="Data contoh (demo). Isi Spreadsheet ID di ⚙︎."}
   else{
+    const ck="csv|"+id+"|"+tab;
     try{
-      const r=await fetch(url+(url.includes("?")?"&":"?")+"t="+Date.now());
-      if(!r.ok) throw new Error("HTTP "+r.status);
-      text=await r.text(); LS("csvCache",text); src="Roster dimuat dari Google Sheets ✓";
+      setStatus('Memuat tab "'+tab+'"…');
+      text=await fetchSheet(id,tab);LS(ck,text);
+      src='Roster tab "'+tab+'" dimuat dari Google Sheets ✓';
     }catch(e){
-      text=LS("csvCache"); src=text?"Offline: memakai roster tersimpan terakhir.":"";
-      if(!text){setStatus("Gagal memuat roster: "+e.message,true);return}
+      text=LS(ck);
+      if(!text){if(seq===loadSeq){ROSTER=null;setStatus('Gagal memuat tab "'+tab+'": '+e.message,true);render()}return}
+      src="Gagal memuat ("+e.message+"). Memakai roster tersimpan terakhir.";
     }
   }
-  try{ROSTER=buildRoster(text)}catch(e){setStatus(e.message,true);return}
-  if(ROSTER.month!=null&&!LS("monLocked")) $("mon").value=ROSTER.month;
-  if(ROSTER.year&&!LS("monLocked")) $("yr").value=ROSTER.year;
-  setStatus(src);
+  if(seq!==loadSeq) return;
+  try{ROSTER=buildRoster(text)}catch(e){ROSTER=null;setStatus(e.message,true);render();return}
+  ROSTER.valid=true;let warn="";
+  if(id&&ROSTER.month!=null&&(ROSTER.month!==m||(ROSTER.year&&ROSTER.year!==y))){
+    ROSTER.valid=false;
+    warn='Peringatan: tab "'+tab+'" berisi roster '+BULAN[ROSTER.month]+' '+(ROSTER.year||"")+', bukan '+BULAN[m]+' '+y+'. Label dinas dari tab ini tidak dipakai.';
+  }
+  setStatus(warn||src,!!warn);
   await render();
 }
 function setStatus(t,e){const s=$("status");s.textContent=t;s.className="msg"+(e?" err":"")}
 
 /* ================== TAMPILAN ================== */
 const sel=()=>({nipp:$("nipp").value.trim(),m:+$("mon").value,y:+$("yr").value});
-const live=()=>ROSTER&&ROSTER.month===sel().m&&ROSTER.year===sel().y;
+const live=()=>!!(ROSTER&&ROSTER.valid);
 
 async function render(){
   const {nipp,m,y}=sel();
@@ -343,13 +371,31 @@ async function restore(file){
 BULAN.forEach((b,i)=>{const o=document.createElement("option");o.value=i;o.textContent=b[0]+b.slice(1).toLowerCase();$("mon").appendChild(o)});
 const now=new Date();
 $("mon").value=now.getMonth();$("yr").value=now.getFullYear();
-$("nipp").value=new URLSearchParams(location.search).get("nipp")||LS("nipp")||"";
-$("csvUrl").value=LS("csvUrl")||DEFAULT_CSV_URL;
+const fromHash=()=>(location.hash.replace(/^#/,"")||new URLSearchParams(location.search).get("nipp")||"").trim();
+$("nipp").value=fromHash()||LS("nipp")||"";
+$("ssId").value=LS("ssId")||DEFAULT_ID;
+$("ssTab").value=LS("ssTab")||"";
 $("gear").onclick=()=>$("settings").classList.toggle("hide");
-$("saveUrl").onclick=()=>{LS("csvUrl",$("csvUrl").value.trim());LS("monLocked","");loadRoster()};
-$("csvFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{ROSTER=buildRoster(await f.text());LS("csvCache",await f.text());if(ROSTER.month!=null)$("mon").value=ROSTER.month;if(ROSTER.year)$("yr").value=ROSTER.year;setStatus("Roster dimuat dari file ✓");render()}catch(err){setStatus(err.message,true)}};
-$("nipp").oninput=render;
-$("mon").onchange=$("yr").onchange=()=>{LS("monLocked","1");render()};
+$("saveCfg").onclick=()=>{
+  const raw=$("ssId").value.trim(),mm=raw.match(/\/d\/([\w-]+)/),id=mm?mm[1]:raw;
+  $("ssId").value=id;LS("ssId",id);LS("ssTab",$("ssTab").value.trim());loadRoster();
+};
+$("csvFile").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    ROSTER=buildRoster(await f.text());ROSTER.valid=true;
+    if(ROSTER.month!=null)$("mon").value=ROSTER.month;
+    if(ROSTER.year)$("yr").value=ROSTER.year;
+    setStatus("Roster dimuat dari file ✓");render();
+  }catch(err){setStatus(err.message,true)}
+};
+$("nipp").oninput=()=>{
+  const v=$("nipp").value.trim();
+  try{history.replaceState(null,"",v?"#"+v:location.pathname+location.search)}catch(e){}
+  render();
+};
+addEventListener("hashchange",()=>{const v=fromHash();if(v&&v!==$("nipp").value.trim()){$("nipp").value=v;render()}});
+$("mon").onchange=$("yr").onchange=loadRoster;
 $("pdfBtn").onclick=makePDF;
 $("bkp").onclick=backup;
 $("rst").onchange=e=>e.target.files[0]&&restore(e.target.files[0]);
