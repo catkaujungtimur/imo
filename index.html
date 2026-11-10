@@ -136,10 +136,10 @@ function parseCSV(t){const r=[];let row=[],c="",q=false;for(let i=0;i<t.length;i
 
 function buildRoster(text){
   const rows=parseCSV(text);
-  const hi=rows.findIndex(r=>r.some(c=>c.trim().toUpperCase()==="NIPP"));
+  const hi=rows.findIndex(r=>r.some(c=>c.toUpperCase().includes("NIPP")));
   if(hi<0) throw new Error("Header 'NIPP' tidak ditemukan di CSV.");
   const H=rows[hi].map(c=>c.trim().toUpperCase());
-  const ni=H.indexOf("NIPP"),nm=H.indexOf("NAMA"),jb=H.indexOf("JABATAN");
+  const ni=H.findIndex(c=>c.includes("NIPP")),nm=H.findIndex(c=>c.includes("NAMA")),jb=H.findIndex(c=>c.includes("JABATAN"));
   if(jb<0) throw new Error("Kolom 'JABATAN' tidak ditemukan.");
   const d0=jb+1;
   const head=rows.slice(0,hi+1).flat().join(" ").toUpperCase();
@@ -187,15 +187,17 @@ const gviz=(id,tab,hd)=>`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tq
 // Ambil tab dari Google Sheets (format CSV agar huruf seperti L/CT/SOE tidak hilang).
 // Percobaan 1 memakai headers=0 (semua baris dianggap data); jika roster tidak terbaca, coba tanpa itu.
 async function fetchSheet(id,tab){
-  let lastErr;
+  let lastErr,sample="";
   for(const hd of [true,false]){
     const r=await fetch(gviz(id,tab,hd),{cache:"no-store"});
     if(!r.ok) throw new Error("HTTP "+r.status);
     const t=await r.text();
     if(/^\s*</.test(t)) throw new Error("Spreadsheet tidak bisa diakses. Cek ID dan pastikan dibagikan 'Anyone with the link' (Viewer).");
-    try{buildRoster(t);return t}catch(e){lastErr=e}
+    try{buildRoster(t);return t}catch(e){lastErr=e;sample=t}
   }
-  throw lastErr;
+  const all=parseCSV(sample);
+  const peek=all.filter(r=>r.some(c=>c.trim())).slice(0,4).map(r=>r.slice(0,8).map(c=>c.trim().slice(0,18)).join(" ¦ ")).join(" // ");
+  throw new Error(lastErr.message+" Cuplikan dari Google ("+all.length+" baris): "+(peek||"kosong"));
 }
 
 let loadSeq=0;
