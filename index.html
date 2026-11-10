@@ -53,9 +53,16 @@ input[type=file]{display:none}
   <input type="text" id="ssTab" placeholder="otomatis">
   <div class="row" style="margin-top:8px">
     <button id="saveCfg">Simpan &amp; muat ulang</button>
-    <label class="btn sec">Muat dari file CSV<input type="file" id="csvFile" accept=".csv,text/csv"></label>
   </div>
   <div class="msg">Spreadsheet harus dibagikan "Anyone with the link – Viewer". Kosongkan ID untuk data contoh (demo). Isi nama tab hanya untuk kasus khusus, karena bila diisi bulan tidak lagi otomatis.</div>
+  <hr style="border:0;border-top:1px solid var(--bd);margin:12px 0">
+  <label class="l">Cadangan: tempel roster (salin mulai dari judul bulan sampai sel kanan bawah)</label>
+  <textarea id="pasteBox" rows="4" placeholder="Tempel di sini…" style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font:inherit"></textarea>
+  <div class="row" style="margin-top:8px">
+    <button id="pasteUse">Pakai tempelan</button>
+    <button class="sec" id="pasteDel">Hapus tempelan bulan ini</button>
+  </div>
+  <div class="msg" id="pasteMsg">Dipakai hanya bila Spreadsheet ID kosong atau gagal dimuat. Tersimpan per bulan di perangkat ini.</div>
   <hr style="border:0;border-top:1px solid var(--bd);margin:12px 0">
   <div class="row">
     <button class="sec" id="bkp">⬇︎ Cadangkan data</button>
@@ -132,10 +139,12 @@ let ROSTER=null; // {people:{nipp:[{nama,jab,days[]}]}, month, year}
 const $=id=>document.getElementById(id);
 const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){}};
 
-function parseCSV(t){const r=[];let row=[],c="",q=false;for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}else if(ch=='"')q=true;else if(ch==','){row.push(c);c=""}else if(ch=='\n'||ch=='\r'){if(ch=='\r'&&t[i+1]=='\n')i++;row.push(c);r.push(row);row=[];c=""}else c+=ch}row.push(c);r.push(row);return r}
+function parseCSV(t,dl){dl=dl||",";const r=[];let row=[],c="",q=false;for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}else if(ch=='"')q=true;else if(ch===dl){row.push(c);c=""}else if(ch=='\n'||ch=='\r'){if(ch=='\r'&&t[i+1]=='\n')i++;row.push(c);r.push(row);row=[];c=""}else c+=ch}row.push(c);r.push(row);return r}
 
 function buildRoster(text){
-  const rows=parseCSV(text);
+  // Hasil salin dari Sheets/Excel dipisah tab; hasil unduh/Google dipisah koma.
+  const dl=(text.match(/\t/g)||[]).length>(text.match(/,/g)||[]).length?"\t":",";
+  const rows=parseCSV(text,dl);
   const isNipp=c=>/^\d{4,}$/.test((c||"").trim());
   let hi=rows.findIndex(r=>r.some(c=>c.toUpperCase().includes("NIPP")));
   let ni,nm,jb;
@@ -193,6 +202,7 @@ function demoCSV(){
   ].join("\n");
 }
 
+const pasteKey=(y,m)=>"paste|"+y+"-"+m;
 const BULANTITLE=BULAN.map(b=>b[0]+b.slice(1).toLowerCase());
 const getId=()=>LS("ssId")||DEFAULT_ID;
 const tabName=()=>(LS("ssTab")||"").trim()||BULANTITLE[+$("mon").value];
@@ -217,18 +227,23 @@ async function fetchSheet(id,tab){
 let loadSeq=0;
 async function loadRoster(){
   const seq=++loadSeq,id=getId(),{m,y}=sel(),tab=tabName();
+  const pasted=LS(pasteKey(y,m));
   let text=null,src="";
-  if(!id){text=demoCSV();src="Data contoh (demo). Isi Spreadsheet ID di ⚙︎."}
-  else{
+  if(!id){
+    if(pasted){text=pasted;src="Roster dari tempelan (cadangan) ✓"}
+    else{text=demoCSV();src="Data contoh (demo). Isi Spreadsheet ID di ⚙︎ atau tempel roster."}
+  }else{
     const ck="csv|"+id+"|"+tab;
     try{
       setStatus('Memuat tab "'+tab+'"…');
       text=await fetchSheet(id,tab);LS(ck,text);
       src='Roster tab "'+tab+'" dimuat dari Google Sheets ✓';
     }catch(e){
+      let fb="roster tersimpan terakhir";
       text=LS(ck);
+      if(!text){text=pasted;fb="roster tempelan"}
       if(!text){if(seq===loadSeq){ROSTER=null;setStatus('Gagal memuat tab "'+tab+'": '+e.message,true);render()}return}
-      src="Gagal memuat ("+e.message+"). Memakai roster tersimpan terakhir.";
+      src="Gagal memuat ("+e.message+"). Memakai "+fb+".";
     }
   }
   if(seq!==loadSeq) return;
@@ -265,8 +280,8 @@ async function render(){
     const code=live()?codeFor(nipp,d):(e&&e.kode)||"";
     if(live()&&e&&e.kode!==code){e.kode=code;await dbPut(keyOf(nipp,y,m,d),e)}
     const inf=info(code);
-    const has=e&&(e.serah||(e.fotos&&e.fotos.some(Boolean)));
-    const full=e&&e.serah&&e.fotos&&e.fotos.some(Boolean);
+    const has=e&&(e.serah||(e.fotos&&e.fotos[0]));
+    const full=e&&e.serah&&e.fotos&&e.fotos[0];
     if(!inf.off){need++;if(full)done++}
     const dow=new Date(y,m,d).getDay();
     const div=document.createElement("div");
@@ -303,8 +318,7 @@ async function openDay(d){
       <div class="a"><label class="btn sec" style="flex:1">${img?"Ganti":"Pilih / ambil foto"}<input type="file" accept="image/*" data-id="${id}" data-max="${max}"></label>${img?`<button class="dng" data-del="${id}">Hapus</button>`:""}</div></div>`;
     dlg.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><b>${HARI[dow]}, ${d} ${BULAN[m]} ${y}</b><div class="msg" style="margin:0">${kegiatan(inf.label)}</div></div><button class="sec" id="cls">Tutup</button></div>
       ${slot("serah","Lembar Serah Terima Dinas",e.serah,1600)}
-      ${slot("f0","Foto Dokumentasi 1",e.fotos[0],1100)}
-      ${slot("f1","Foto Dokumentasi 2 (opsional)",e.fotos[1],1100)}`;
+      ${slot("f0","Foto Dokumentasi Kegiatan",e.fotos[0],1100)}`;
     $("cls").onclick=()=>dlg.close();
     dlg.querySelectorAll("input[type=file]").forEach(inp=>inp.onchange=async()=>{
       if(!inp.files[0]) return;
@@ -339,32 +353,41 @@ async function makePDF(){
     const items=[];
     for(let d=1;d<=n;d++){
       const e=all[keyOf(nipp,y,m,d)];
-      if(e&&(e.serah||(e.fotos&&e.fotos.some(Boolean)))) items.push({d,e,code:live()?codeFor(nipp,d):e.kode||""});
+      if(e&&(e.serah||(e.fotos&&e.fotos[0]))) items.push({d,e,code:live()?codeFor(nipp,d):e.kode||""});
     }
     if(!items.length){alert("Belum ada dokumentasi di bulan ini.");return}
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
-    const X=10,W=[32,30,110,105],top=22,hh=9,rowTop=top+hh,rowH=170;
+    // A4 mendatar 297 x 210 mm. Satu hari satu halaman; baris dibuat setinggi mungkin
+    // supaya lembar serah terima terbaca. Lebar kolom serah terima mengikuti bentuk dokumennya.
+    const PW=297,PH=210,X=10,TW=PW-2*X,top=15,hh=8,rowTop=top+hh,rowH=PH-rowTop-8;
+    const W0=28,W1=26,PAD=2,MINFOTO=70;
     let first=true;
     for(const it of items){
       if(!first) doc.addPage(); first=false;
-      doc.setFont("helvetica","bold");doc.setFontSize(11);
-      doc.text(`DOKUMENTASI KEGIATAN DINAS - ${rs[0].nama} (NIPP ${nipp}) - ${BULAN[m]} ${y}`,X,14);
+      let W2=110;
+      if(it.e.serah){
+        const [iw,ih]=await dim(it.e.serah);
+        W2=Math.min(TW-W0-W1-MINFOTO,Math.max(60,(rowH-2*PAD)*iw/ih+2*PAD));
+      }
+      const W3=TW-W0-W1-W2;
+      const W=[W0,W1,W2,W3];
+      doc.setFont("helvetica","bold");doc.setFontSize(10);
+      doc.text(`DOKUMENTASI KEGIATAN DINAS - ${rs[0].nama} (NIPP ${nipp}) - ${BULAN[m]} ${y}`,X,top-4);
       const xs=[X];W.forEach((w,i)=>xs.push(xs[i]+w));
       doc.setLineWidth(.3);
-      doc.rect(X,top,277,hh+rowH);
+      doc.rect(X,top,TW,hh+rowH);
       xs.slice(1,-1).forEach(x=>doc.line(x,top,x,top+hh+rowH));
-      doc.line(X,rowTop,X+277,rowTop);
-      doc.setFontSize(10);
-      ["Hari, Tanggal","Kegiatan","Serah Terima Dinas","Dokumentasi Kegiatan"].forEach((t,i)=>doc.text(t,xs[i]+W[i]/2,top+6,{align:"center"}));
+      doc.line(X,rowTop,X+TW,rowTop);
+      doc.setFontSize(9);
+      ["Hari, Tanggal","Kegiatan","Serah Terima Dinas","Dokumentasi Kegiatan"].forEach((t,i)=>doc.text(t,xs[i]+W[i]/2,top+5.5,{align:"center"}));
       doc.setFont("helvetica","normal");
       const dow=HARI[new Date(y,m,it.d).getDay()];
       doc.text([dow+",",String(it.d),BULAN[m],String(y)],xs[0]+W[0]/2,rowTop+10,{align:"center",lineHeightFactor:1.5});
       doc.text(doc.splitTextToSize(kegiatan(info(it.code).label),W[1]-4),xs[1]+W[1]/2,rowTop+10,{align:"center"});
-      if(it.e.serah) await fit(doc,it.e.serah,xs[2]+2,rowTop+2,W[2]-4,rowH-4);
-      const fs=(it.e.fotos||[]).filter(Boolean);
-      if(fs.length===1) await fit(doc,fs[0],xs[3]+2,rowTop+2,W[3]-4,rowH-4);
-      else if(fs.length===2){const h=(rowH-6)/2;await fit(doc,fs[0],xs[3]+2,rowTop+2,W[3]-4,h);await fit(doc,fs[1],xs[3]+2,rowTop+4+h,W[3]-4,h)}
+      if(it.e.serah) await fit(doc,it.e.serah,xs[2]+PAD,rowTop+PAD,W[2]-2*PAD,rowH-2*PAD);
+      const f0=it.e.fotos&&it.e.fotos[0];
+      if(f0) await fit(doc,f0,xs[3]+PAD,rowTop+PAD,W[3]-2*PAD,rowH-2*PAD);
     }
     doc.save(`Dokumentasi_${rs[0].nama.replace(/\s+/g,"_")}_${nipp}_${BULAN[m]}_${y}.pdf`);
   }catch(err){alert("Gagal membuat PDF: "+err.message)}
@@ -399,14 +422,23 @@ $("saveCfg").onclick=()=>{
   const raw=$("ssId").value.trim(),mm=raw.match(/\/d\/([\w-]+)/),id=mm?mm[1]:raw;
   $("ssId").value=id;LS("ssId",id);LS("ssTab",$("ssTab").value.trim());loadRoster();
 };
-$("csvFile").onchange=async e=>{
-  const f=e.target.files[0];if(!f)return;
+const pmsg=(t,e)=>{const x=$("pasteMsg");x.textContent=t;x.className="msg"+(e?" err":"")};
+$("pasteUse").onclick=()=>{
+  const t=$("pasteBox").value;
+  if(!t.trim()){pmsg("Kotak tempel masih kosong.",true);return}
   try{
-    ROSTER=buildRoster(await f.text());ROSTER.valid=true;
-    if(ROSTER.month!=null)$("mon").value=ROSTER.month;
-    if(ROSTER.year)$("yr").value=ROSTER.year;
-    setStatus("Roster dimuat dari file ✓");render();
-  }catch(err){setStatus(err.message,true)}
+    const r=buildRoster(t);
+    if(r.month!=null)$("mon").value=r.month;
+    if(r.year)$("yr").value=r.year;
+    const {m,y}=sel();
+    LS(pasteKey(y,m),t);$("pasteBox").value="";
+    pmsg("Tempelan disimpan untuk "+BULAN[m]+" "+y+" ("+Object.keys(r.people).length+" pegawai).");
+    loadRoster();
+  }catch(err){pmsg("Tempelan tidak terbaca: "+err.message,true)}
+};
+$("pasteDel").onclick=()=>{
+  const {m,y}=sel();LS(pasteKey(y,m),"");
+  pmsg("Tempelan "+BULAN[m]+" "+y+" dihapus.");loadRoster();
 };
 $("nipp").oninput=()=>{
   const v=$("nipp").value.trim();
