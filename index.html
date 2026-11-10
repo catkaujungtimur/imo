@@ -98,8 +98,8 @@ const KODE = {
 };
 // kode non-dinas biasa. off=true: tidak dihitung "belum lengkap"
 const STATUS = {
-  "L":{t:"Libur",off:true},"CT":{t:"Cuti",off:true},"DIKLAT":{t:"Diklat",off:true},"DIKLAT PENGENDALI":{t:"Diklat",off:true},
-  "REST":{t:"Istirahat",off:true},"JOCUP":{t:"JOCUP",off:true},"BKS":{t:"BKS",off:true},
+  "L":{t:"Libur",off:true},"CT":{t:"Cuti",off:true},"DIKLAT":{t:"Diklat",off:true},"DIKLAT PENGENDALI":{t:"Diklat Pengendali",off:true},
+  "REST":{t:"Istirahat",off:true},"JOCUP":{t:"JOCUP",off:true},"BKS":{t:"Sertifikasi Bekasi",off:true},
   "SOE":{t:"Safety Operation Engagement",off:false},
   "PRS":{t:"Dinas Wakilan PRS",off:false},"PLR":{t:"Dinas Wakilan PLR",off:false}
 };
@@ -112,7 +112,7 @@ function info(code){
   if(STATUS[c]) return {label:STATUS[c].t,off:STATUS[c].off};
   if(KODE[c]) return {label:KODE[c],off:false};
   const m=c.match(/^(\d+)A$/);
-  if(m&&KODE[m[1]]) return {label:KODE[m[1]]+" (A)",off:false};
+  if(m&&KODE[m[1]]) return {label:KODE[m[1]]+" (didampingi)",off:false};
   return {label:c,off:false};
 }
 const kegiatan=l=>/pagi|siang|malam/i.test(l)?"DINAS "+l.match(/pagi|siang|malam/i)[0].toUpperCase():l.toUpperCase();
@@ -150,7 +150,10 @@ function buildRoster(text){
   for(const r of rows.slice(hi+1)){
     const n=(r[ni]||"").trim();
     if(!/^\d{4,}$/.test(n)) continue;
-    (people[n]=people[n]||[]).push({nama:(r[nm]||"").trim(),jab:(r[jb]||"").trim(),days:r.slice(d0,d0+31).map(x=>x.trim())});
+    const days=r.slice(d0,d0+31).map(x=>x.trim());
+    // Sel gabungan (Diklat, JOCUP, Dinas Wakilan PRS/PLR) hanya berisi teks di sel pertama; hari sisanya kosong. Isi dengan kode yang sama.
+    for(let i=1;i<days.length;i++) if(!days[i]&&/^(JOCUP|DIKLAT.*|PRS|PLR)$/i.test(days[i-1])) days[i]=days[i-1];
+    (people[n]=people[n]||[]).push({nama:(r[nm]||"").trim(),jab:(r[jb]||"").trim(),days});
   }
   return {people,month,year};
 }
