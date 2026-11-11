@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="id">
 <head>
@@ -40,6 +41,9 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .slot .a{display:flex;gap:8px;margin-top:6px}
 input[type=file]{display:none}
 .hide{display:none}
+.card h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card.active{border-color:var(--pr);box-shadow:0 0 0 1px var(--pr)}
+.badge{font-size:11px;font-weight:600;background:var(--pr);color:#fff;border-radius:99px;padding:2px 8px}
 header small{display:block;font-weight:400;font-size:12px;opacity:.7}
 header a{color:#fff;text-decoration:none;font-weight:600;margin-right:10px;font-size:14px}
 body.rk main{max-width:none}
@@ -64,33 +68,40 @@ body.rk main{max-width:none}
 <header><h1>📋 Dokumentasi Dinas<small id="stn"></small></h1><div><a id="lnkRekap" href="#rekap">Rekap</a><button class="sec" id="gear">⚙︎</button></div></header>
 <main>
 
-<div class="card hide" id="settings">
-  <label class="l">Spreadsheet ID (boleh tempel link spreadsheet-nya)</label>
-  <input type="text" id="ssId" placeholder="mis. 1AbCdEf...xyz">
-  <label class="l" style="margin-top:8px">Nama tab (kosongkan = otomatis sesuai bulan, mis. "November")</label>
-  <input type="text" id="ssTab" placeholder="otomatis">
-  <label class="l" style="margin-top:8px">Alamat Apps Script (Web app URL, berakhiran /exec)</label>
-  <input type="text" id="scUrl" placeholder="https://script.google.com/macros/s/.../exec">
-  <label class="l" style="margin-top:8px">Kunci Apps Script</label>
-  <input type="text" id="scKey" placeholder="sama dengan KUNCI di Code.gs">
-  <div class="row" style="margin-top:8px">
-    <button id="saveCfg">Simpan &amp; muat ulang</button>
+<div class="hide" id="settings">
+  <div class="card" id="box1">
+    <h3>Cara 1: pakai Apps Script <span class="badge hide" id="b1">sedang dipakai</span></h3>
+    <label class="l">Spreadsheet ID roster (boleh tempel link spreadsheet-nya)</label>
+    <input type="text" id="ssId" placeholder="mis. 1AbCdEf...xyz">
+    <label class="l" style="margin-top:8px">Nama tab (kosongkan = otomatis sesuai bulan, mis. "November")</label>
+    <input type="text" id="ssTab" placeholder="otomatis">
+    <label class="l" style="margin-top:8px">Alamat Apps Script (Web app URL, berakhiran /exec)</label>
+    <input type="text" id="scUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    <label class="l" style="margin-top:8px">Kunci Apps Script</label>
+    <input type="text" id="scKey" placeholder="sama dengan KUNCI di Code.gs">
+    <div class="row" style="margin-top:8px"><button id="saveCfg">Simpan &amp; muat ulang</button></div>
+    <div class="msg" id="c1msg"></div>
+    <div class="msg">ID roster harus terdaftar di tab PENGATURAN pada spreadsheet IMO Status. Isi nama tab hanya untuk kasus khusus, karena bila diisi bulan tidak lagi otomatis.</div>
   </div>
-  <div class="msg">Spreadsheet harus dibagikan "Anyone with the link – Viewer". Kosongkan ID untuk data contoh (demo). Isi nama tab hanya untuk kasus khusus, karena bila diisi bulan tidak lagi otomatis.</div>
-  <hr style="border:0;border-top:1px solid var(--bd);margin:12px 0">
-  <label class="l">Cadangan: tempel roster (salin mulai dari judul bulan sampai sel kanan bawah)</label>
-  <textarea id="pasteBox" rows="4" placeholder="Tempel di sini…" style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font:inherit"></textarea>
-  <div class="row" style="margin-top:8px">
-    <button id="pasteUse">Pakai tempelan</button>
-    <button class="sec" id="pasteDel">Hapus tempelan bulan ini</button>
+  <div class="card" id="box2">
+    <h3>Cara 2: pakai copy paste dinasan manual <span class="badge hide" id="b2">sedang dipakai</span></h3>
+    <label class="l">Salin roster dari judul bulan sampai sel kanan bawah, lalu tempel di sini</label>
+    <textarea id="pasteBox" rows="4" placeholder="Tempel di sini…" style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font:inherit"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button id="pasteUse">Pakai tempelan</button>
+      <button class="sec" id="pasteDel">Hapus tempelan bulan ini</button>
+    </div>
+    <div class="msg" id="pasteMsg"></div>
+    <div class="msg">Tersimpan per bulan di perangkat ini. Dipakai bila Cara 1 belum diisi atau sedang tidak tersambung.</div>
   </div>
-  <div class="msg" id="pasteMsg">Dipakai hanya bila Spreadsheet ID kosong atau gagal dimuat. Tersimpan per bulan di perangkat ini.</div>
-  <hr style="border:0;border-top:1px solid var(--bd);margin:12px 0">
-  <div class="row">
-    <button class="sec" id="bkp">⬇︎ Cadangkan data</button>
-    <label class="btn sec">⬆︎ Pulihkan data<input type="file" id="rst" accept=".json,application/json"></label>
+  <div class="card" id="box3">
+    <h3>Cadangan data foto</h3>
+    <div class="row">
+      <button class="sec" id="bkp">⬇︎ Cadangkan data</button>
+      <label class="btn sec">⬆︎ Pulihkan data<input type="file" id="rst" accept=".json,application/json"></label>
+    </div>
+    <div class="msg">Foto tersimpan di browser perangkat ini. Cadangkan sebelum ganti HP/laptop.</div>
   </div>
-  <div class="msg">Foto tersimpan di browser perangkat ini. Cadangkan sebelum ganti HP/laptop.</div>
 </div>
 
 <div class="card">
@@ -118,9 +129,9 @@ body.rk main{max-width:none}
 /* Bagian ini khas satu stasiun. Stasiun lain cukup menyalin web ini lalu mengganti CONFIG dan kamus kode di bawahnya. */
 const CONFIG = {
   stasiun: "Stasiun Besar C Ketapang",
-  spreadsheetId: "1Dl3SZ_RKYj2kCF9npYGTXGMcvT4avCBfBn49NkBk7t0",   // ID spreadsheet roster (ganti tiap tahun, atau lewat ⚙︎)
-  scriptUrl: "https://script.google.com/macros/s/AKfycbwFVY4pd31Ou9A5Tb2Wv1_nYu3oUsCWmY-lEl6hXp7PmR4A3C_dVhZuD-4GndFBKOo/exec",       // alamat Web app Apps Script (berakhiran /exec)
-  kunci: "ktg"            // sama dengan KUNCI di Code.gs
+  spreadsheetId: "",   // ID spreadsheet roster (ganti tiap tahun, atau lewat ⚙︎)
+  scriptUrl: "",       // alamat Web app Apps Script (berakhiran /exec)
+  kunci: ""            // sama dengan KUNCI di Code.gs
 };
 const DEFAULT_ID = CONFIG.spreadsheetId;
 
@@ -243,23 +254,6 @@ const pasteKey=(y,m)=>"paste|"+y+"-"+m;
 const BULANTITLE=BULAN.map(b=>b[0]+b.slice(1).toLowerCase());
 const getId=()=>LS("ssId")||DEFAULT_ID;
 const tabName=()=>(LS("ssTab")||"").trim()||BULANTITLE[+$("mon").value];
-const gviz=(id,tab,hd)=>`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}${hd?"&headers=0":""}`;
-
-// Ambil tab dari Google Sheets (format CSV agar huruf seperti L/CT/SOE tidak hilang).
-// Percobaan 1 memakai headers=0 (semua baris dianggap data); jika roster tidak terbaca, coba tanpa itu.
-async function fetchSheet(id,tab){
-  let lastErr,sample="";
-  for(const hd of [true,false]){
-    const r=await fetch(gviz(id,tab,hd),{cache:"no-store"});
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    const t=await r.text();
-    if(/^\s*</.test(t)) throw new Error("Spreadsheet tidak bisa diakses. Cek ID dan pastikan dibagikan 'Anyone with the link' (Viewer).");
-    try{buildRoster(t);return t}catch(e){lastErr=e;sample=t}
-  }
-  const all=parseCSV(sample);
-  const peek=all.filter(r=>r.some(c=>c.trim())).slice(0,4).map(r=>r.slice(0,8).map(c=>c.trim().slice(0,18)).join(" ¦ ")).join(" // ");
-  throw new Error(lastErr.message+" Cuplikan dari Google ("+all.length+" baris): "+(peek||"kosong"));
-}
 
 const getScript=()=>(LS("scUrl")||CONFIG.scriptUrl||"").trim();
 const getKey=()=>(LS("scKey")||CONFIG.kunci||"").trim();
@@ -273,49 +267,65 @@ async function callScript(params){
   if(!j.ok) throw new Error(j.error||"Apps Script menolak permintaan.");
   return j;
 }
-// Utama: Apps Script (isi sel lengkap). Cadangan: Google gviz. Hasil keduanya berupa array baris atau teks.
-async function fetchRoster(id,tab){
-  let scErr="";
-  if(getScript()){
-    try{const j=await callScript({action:"roster",id,tab});buildRoster(j.values);return {data:j.values,via:"Apps Script"}}
-    catch(e){scErr=e.message}
-  }
-  try{return {data:await fetchSheet(id,tab),via:"Google Sheets"}}
-  catch(e){throw new Error((scErr?"Apps Script: "+scErr+" | ":"")+e.message)}
-}
 const readCache=k=>{const c=LS(k);if(!c)return null;try{return JSON.parse(c)}catch(e){return c}};
+
+const stamp=k=>+LS("t|"+k)||0;
+let METHOD={aktif:"none",c1:"",c1bad:false};
+function showMethod(){
+  const {m,y}=sel(),pasted=LS(pasteKey(y,m));
+  $("b1").classList.toggle("hide",METHOD.aktif!=="c1");
+  $("b2").classList.toggle("hide",METHOD.aktif!=="c2");
+  $("box1").classList.toggle("active",METHOD.aktif==="c1");
+  $("box2").classList.toggle("active",METHOD.aktif==="c2");
+  const c=$("c1msg");c.textContent="Status Cara 1: "+(METHOD.c1||"belum diisi.");c.className="msg"+(METHOD.c1bad?" err":"");
+  let t="Belum ada tempelan untuk "+BULAN[m]+" "+y+".";
+  if(pasted){try{t="Tempelan tersimpan untuk "+BULAN[m]+" "+y+" ("+buildRoster(pasted).order.length+" pegawai)."}catch(e){t="Tempelan tersimpan tetapi tidak terbaca: "+e.message}}
+  const p=$("pasteMsg");p.textContent="Status Cara 2: "+t;p.className="msg";
+}
 
 let loadSeq=0;
 async function loadRoster(){
   const seq=++loadSeq,id=getId(),{m,y}=sel(),tab=tabName();
-  const pasted=LS(pasteKey(y,m));
-  let data=null,src="";
-  if(!id){
-    if(pasted){data=pasted;src="Roster dari tempelan (cadangan) ✓"}
-    else{data=demoCSV();src="Data contoh (demo). Isi Spreadsheet ID di ⚙︎ atau tempel roster."}
-  }else{
+  const pk=pasteKey(y,m),pasted=LS(pk),hasC1=!!(id&&getScript());
+  let data=null,aktif="none",note="",c1="",c1bad=false;
+  if(hasC1){
     const ck="csv|"+id+"|"+tab;
     try{
-      setStatus('Memuat tab "'+tab+'"…');
-      const r=await fetchRoster(id,tab);
-      data=r.data;LS(ck,JSON.stringify(data));
-      src='Roster tab "'+tab+'" dimuat via '+r.via+' ✓';
+      setStatus("Menyambung ke Apps Script…");
+      const j=await callScript({action:"roster",id,tab});
+      buildRoster(j.values);
+      data=j.values;LS(ck,JSON.stringify(data));LS("t|"+ck,Date.now());
+      aktif="c1";c1='tersambung ✓ (tab "'+tab+'")';
     }catch(e){
-      let fb="roster tersimpan terakhir";
-      data=readCache(ck);
-      if(!data){data=pasted;fb="roster tempelan"}
-      if(!data){if(seq===loadSeq){ROSTER=null;setStatus('Gagal memuat tab "'+tab+'": '+e.message,true);render()}return}
-      src="Gagal memuat ("+e.message+"). Memakai "+fb+".";
+      c1="belum berhasil. "+e.message;c1bad=true;
+      const cached=readCache(ck);
+      // pakai yang lebih baru antara salinan Cara 1 dan tempelan Cara 2
+      if(cached&&(!pasted||stamp(ck)>=stamp(pk))){data=cached;aktif="c1";note="salinan tersimpan terakhir, sedang tidak tersambung"}
+      else if(pasted){data=pasted;aktif="c2"}
     }
+  }else{
+    c1=!id&&!getScript()?"belum diisi.":!id?"Spreadsheet ID belum diisi.":"alamat Apps Script belum diisi.";
+    if(pasted){data=pasted;aktif="c2"}
   }
   if(seq!==loadSeq) return;
+  if(!data&&hasC1){
+    ROSTER=null;METHOD={aktif:"none",c1,c1bad};showMethod();
+    setStatus("Cara 1 (Apps Script) belum berhasil dan belum ada tempelan Cara 2. Lihat ⚙︎. "+c1.replace(/^belum berhasil\.\s*/,""),true);
+    render();return;
+  }
+  if(!data){data=demoCSV()}
+  METHOD={aktif,c1,c1bad};showMethod();
   try{ROSTER=buildRoster(data)}catch(e){ROSTER=null;setStatus(e.message,true);render();return}
   ROSTER.valid=true;let warn="";
-  if(id&&ROSTER.month!=null&&(ROSTER.month!==m||(ROSTER.year&&ROSTER.year!==y))){
+  if(aktif==="c1"&&ROSTER.month!=null&&(ROSTER.month!==m||(ROSTER.year&&ROSTER.year!==y))){
     ROSTER.valid=false;
     warn='Peringatan: tab "'+tab+'" berisi roster '+BULAN[ROSTER.month]+' '+(ROSTER.year||"")+', bukan '+BULAN[m]+' '+y+'. Label dinas dari tab ini tidak dipakai.';
   }
-  setStatus(warn||src,!!warn);
+  let txt;
+  if(aktif==="c1") txt="Metode aktif: Cara 1 (Apps Script)"+(note?" · "+note:' · tab "'+tab+'" ✓');
+  else if(aktif==="c2") txt="Metode aktif: Cara 2 (copy paste dinasan manual)"+(c1bad?" · Cara 1 belum tersambung, lihat ⚙︎":"");
+  else txt="Belum ada metode yang dipilih, sementara memakai data contoh. Isi Cara 1 atau Cara 2 di ⚙︎.";
+  setStatus(warn||txt,!!warn);
   await render();
 }
 function setStatus(t,e){const s=$("status");s.textContent=t;s.className="msg"+(e?" err":"")}
@@ -581,7 +591,7 @@ $("pasteUse").onclick=()=>{
     if(r.month!=null)$("mon").value=r.month;
     if(r.year)$("yr").value=r.year;
     const {m,y}=sel();
-    LS(pasteKey(y,m),t);$("pasteBox").value="";
+    LS(pasteKey(y,m),t);LS("t|"+pasteKey(y,m),Date.now());$("pasteBox").value="";
     pmsg("Tempelan disimpan untuk "+BULAN[m]+" "+y+" ("+Object.keys(r.people).length+" pegawai).");
     loadRoster();
   }catch(err){pmsg("Tempelan tidak terbaca: "+err.message,true)}
