@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="id">
 <head>
@@ -44,6 +43,8 @@ input[type=file]{display:none}
 .card h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .card.active{border-color:var(--pr);box-shadow:0 0 0 1px var(--pr)}
 .badge{font-size:11px;font-weight:600;background:var(--pr);color:#fff;border-radius:99px;padding:2px 8px}
+.day.rem .s{background:#e0f2fe;color:#0369a1}
+code{background:#f3f4f6;padding:1px 5px;border-radius:4px;word-break:break-all}
 header small{display:block;font-weight:400;font-size:12px;opacity:.7}
 header a{color:#fff;text-decoration:none;font-weight:600;margin-right:10px;font-size:14px}
 body.rk main{max-width:none}
@@ -71,17 +72,27 @@ body.rk main{max-width:none}
 <div class="hide" id="settings">
   <div class="card" id="box1">
     <h3>Cara 1: pakai Apps Script <span class="badge hide" id="b1">sedang dipakai</span></h3>
-    <label class="l">Spreadsheet ID roster (boleh tempel link spreadsheet-nya)</label>
-    <input type="text" id="ssId" placeholder="mis. 1AbCdEf...xyz">
-    <label class="l" style="margin-top:8px">Nama tab (kosongkan = otomatis sesuai bulan, mis. "November")</label>
-    <input type="text" id="ssTab" placeholder="otomatis">
-    <label class="l" style="margin-top:8px">Alamat Apps Script (Web app URL, berakhiran /exec)</label>
-    <input type="text" id="scUrl" placeholder="https://script.google.com/macros/s/.../exec">
-    <label class="l" style="margin-top:8px">Kunci Apps Script</label>
-    <input type="text" id="scKey" placeholder="sama dengan KUNCI di Code.gs">
-    <div class="row" style="margin-top:8px"><button id="saveCfg">Simpan &amp; muat ulang</button></div>
+    <div id="c1info" class="hide">
+      <div class="msg" id="c1infoText"></div>
+      <div class="row" style="margin-top:8px"><button class="sec" id="reloadCfg">↻ Muat ulang roster</button></div>
+    </div>
+    <div id="c1edit">
+      <label class="l">Spreadsheet ID roster (boleh tempel link spreadsheet-nya)</label>
+      <input type="text" id="ssId" placeholder="mis. 1AbCdEf...xyz">
+      <label class="l" style="margin-top:8px">Nama tab (kosongkan = otomatis sesuai bulan, mis. "November")</label>
+      <input type="text" id="ssTab" placeholder="otomatis">
+      <label class="l" style="margin-top:8px">Alamat Apps Script (Web app URL, berakhiran /exec)</label>
+      <input type="text" id="scUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <label class="l" style="margin-top:8px">Kunci Apps Script</label>
+      <input type="text" id="scKey" placeholder="sama dengan KUNCI di Code.gs">
+      <div class="row" style="margin-top:8px">
+        <button class="sec" id="genKey" type="button">Buat kunci acak</button>
+        <button id="saveCfg">Simpan &amp; muat ulang</button>
+      </div>
+      <div class="msg" id="genMsg"></div>
+    </div>
     <div class="msg" id="c1msg"></div>
-    <div class="msg">ID roster harus terdaftar di tab PENGATURAN pada spreadsheet IMO Status. Isi nama tab hanya untuk kasus khusus, karena bila diisi bulan tidak lagi otomatis.</div>
+    <div class="msg">ID roster harus terdaftar di tab PENGATURAN pada spreadsheet IMO Status. Bila pengaturan sudah diisi di index.html, isian di sini tidak dipakai.</div>
   </div>
   <div class="card" id="box2">
     <h3>Cara 2: pakai copy paste dinasan manual <span class="badge hide" id="b2">sedang dipakai</span></h3>
@@ -131,9 +142,12 @@ const CONFIG = {
   stasiun: "Stasiun Besar C Ketapang",
   spreadsheetId: "1okvoFL9qTnoxNV79OsN2RLw45oPsPJql1KQwhCkgWjQ",   // ID spreadsheet roster (ganti tiap tahun, atau lewat ⚙︎)
   scriptUrl: "https://script.google.com/macros/s/AKfycbyd739oXWUTq7LYFQL6AS8XjjZmwBpEmhJGFRY_wbBkaYS7LtPQP_LH7-TT7TSS22Y/exec",       // alamat Web app Apps Script (berakhiran /exec)
-  kunci: "ketapang5534"            // sama dengan KUNCI di Code.gs
+  kunci: "ketapang5534",           // sama dengan KUNCI di Code.gs
+  tab: ""              // kosong = tab otomatis sesuai bulan (April, Mei, ...)
 };
-const DEFAULT_ID = CONFIG.spreadsheetId;
+// Bila ID dan alamat Apps Script terisi di sini, isi inilah yang berlaku untuk semua orang
+// dan menu ⚙︎ hanya menampilkan info. Bila kosong, isian di ⚙︎ dipakai.
+const LOCKED=!!(CONFIG.spreadsheetId&&CONFIG.scriptUrl);
 
 /* Kamus kode dinas (khas stasiun) */
 
@@ -252,11 +266,12 @@ function demoCSV(){
 
 const pasteKey=(y,m)=>"paste|"+y+"-"+m;
 const BULANTITLE=BULAN.map(b=>b[0]+b.slice(1).toLowerCase());
-const getId=()=>LS("ssId")||DEFAULT_ID;
-const tabName=()=>(LS("ssTab")||"").trim()||BULANTITLE[+$("mon").value];
+const pick=(c,k)=>(c||(LOCKED?"":LS(k))||"").trim();
+const getId=()=>pick(CONFIG.spreadsheetId,"ssId");
+const tabName=()=>(LOCKED?CONFIG.tab:(CONFIG.tab||LS("ssTab")||"")).trim()||BULANTITLE[+$("mon").value];
 
-const getScript=()=>(LS("scUrl")||CONFIG.scriptUrl||"").trim();
-const getKey=()=>(LS("scKey")||CONFIG.kunci||"").trim();
+const getScript=()=>pick(CONFIG.scriptUrl,"scUrl");
+const getKey=()=>pick(CONFIG.kunci,"scKey");
 async function callScript(params){
   const u=getScript();
   if(!u) throw new Error("Alamat Apps Script belum diisi.");
@@ -339,33 +354,54 @@ const stateOf=e=>{if(!e)return "-";const f=e.fotos&&e.fotos[0];return e.serah&&f
 const bulanKey=(y,m)=>y+"-"+pad(m+1);
 const SYNC={msg:"",bad:false};
 function setSync(t,bad){SYNC.msg=t;SYNC.bad=!!bad;const x=$("sync");if(x){x.textContent=t;x.className="msg"+(bad?" err":"")}}
+// Status pusat milik NIPP yang sedang dibuka: {key:"nipp|YYYY-MM", d:[""|"L"|"S" x31]}
+let REMOTE={key:"",d:[]};
+const remoteKey=(nipp,y,m)=>nipp+"|"+bulanKey(y,m);
+const remoteOf=(nipp,y,m)=>REMOTE.key===remoteKey(nipp,y,m)?REMOTE.d:[];
+const RANK={"":0,"-":0,"S":1,"L":2};
+let lastFetch=0;
+const jam=()=>new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}).replace(".",":");
 async function pushStatus(nipp,y,m,d,state){
   if(!getScript()||!getKey()) return false;
   const rs=ROSTER&&ROSTER.people[nipp];
   try{
     await callScript({action:"set",kunci:getKey(),bulan:bulanKey(y,m),nipp,nama:rs?rs[0].nama:"",hari:d,state});
+    if(REMOTE.key===remoteKey(nipp,y,m)) REMOTE.d[d-1]=state==="-"?"":state;
     setSync("☁ Status tersinkron ✓");return true;
   }catch(e){setSync("☁ Status belum terkirim: "+e.message+" (dicoba lagi saat halaman dibuka)",true);return false}
 }
 async function fetchStatus(y,m){
+  lastFetch=Date.now();
   const j=await callScript({action:"status",bulan:bulanKey(y,m)});
   const o={};(j.rows||[]).forEach(r=>{o[r.nipp]=r});return o;
 }
-// Kirim hari-hari yang sudah terisi di perangkat ini tetapi belum tercatat di pusat (mis. tadi offline).
+// Setelah ubah/hapus di perangkat ini: bila status pusat lebih tinggi karena diisi dari perangkat lain, jangan diturunkan.
+function pushAfterEdit(nipp,y,m,d,prev,next){
+  const rem=remoteOf(nipp,y,m)[d-1]||"";
+  if(RANK[rem]>RANK[prev]){if(RANK[next]>RANK[rem]) pushStatus(nipp,y,m,d,next);return}
+  pushStatus(nipp,y,m,d,next);
+}
+// Baca status pusat, lalu kirim hari yang sudah terisi di perangkat ini tetapi belum tercatat di pusat (mis. tadi offline).
+// Hanya menaikkan status (kosong < sebagian < lengkap), supaya hasil yang diisi dari perangkat lain tidak ditimpa.
 let syncing=false,skipSync=false;
 async function syncMine(nipp,y,m,all){
-  if(!getScript()||!getKey()||syncing) return;
+  if(!getScript()||syncing) return;
   syncing=true;
   try{
-    const st=await fetchStatus(y,m),mine=(st[nipp]&&st[nipp].d)||[];
-    const n=new Date(y,m+1,0).getDate();let sent=0,fail=0;
-    for(let d=1;d<=n;d++){
-      const s=stateOf(all[keyOf(nipp,y,m,d)]);
-      if(s!=="-"&&s!==(mine[d-1]||"")){(await pushStatus(nipp,y,m,d,s))?sent++:fail++}
+    const st=await fetchStatus(y,m),mine=((st[nipp]&&st[nipp].d)||[]).slice();
+    REMOTE={key:remoteKey(nipp,y,m),d:mine};
+    const tulis=!!getKey();let sent=0,fail=0;
+    if(tulis){
+      const n=new Date(y,m+1,0).getDate();
+      for(let d=1;d<=n;d++){
+        const s=stateOf(all[keyOf(nipp,y,m,d)]);
+        if(RANK[s]>RANK[mine[d-1]||""]){(await pushStatus(nipp,y,m,d,s))?sent++:fail++}
+      }
     }
-    if(!fail) setSync(sent?"☁ "+sent+" hari disinkronkan ✓":"☁ Status tersinkron ✓");
+    if(!fail) setSync(tulis?"☁ Status pusat diperbarui "+jam()+(sent?" · "+sent+" hari dikirim":"")+" ✓":"☁ Status pusat dibaca "+jam()+". Kunci belum diisi, jadi status tidak bisa dikirim.",!tulis);
   }catch(e){setSync("☁ Sinkron gagal: "+e.message,true)}
   finally{syncing=false}
+  if(!isRekap()&&sel().nipp===nipp){skipSync=true;render()}   // gambar ulang dengan status pusat terbaru
 }
 
 /* ================== REKAP (#rekap) ================== */
@@ -401,11 +437,13 @@ async function renderRekap(){
     body+=`<tr><td class="n"><a href="#${nipp}">${rs[0].nama}</a><small>${rs[0].jab}</small></td>${cells}<td class="sum">${ok}</td><td class="sum" style="color:${miss?"#b91c1c":"inherit"}">${miss}</td></tr>`;
   }
   box.innerHTML=`<div class="msg" style="margin:0 0 8px"><b>${BULAN[m]} ${y}</b> · ${bad} dari ${ROSTER.order.length} pegawai punya hari kosong/sebagian sampai kemarin.
-    <label style="margin-left:8px"><input type="checkbox" id="onlyMiss" ${ONLYMISS?"checked":""}> hanya yang ada hari kosong</label></div>
+    <label style="margin-left:8px"><input type="checkbox" id="onlyMiss" ${ONLYMISS?"checked":""}> hanya yang ada hari kosong</label>
+    <button class="sec" id="btnRekap" style="margin-left:8px;padding:4px 10px">↻ Perbarui</button></div>
     ${warn?'<div class="msg err">'+warn+'</div>':""}
     <table>${head}${body||'<tr><td class="n" colspan="'+(n+3)+'">Tidak ada.</td></tr>'}</table>
     <div class="msg">✓ lengkap · ½ sebagian · ✗ belum diisi (hari yang sudah lewat) · · belum waktunya · – bukan hari wajib (libur, cuti, diklat)</div>`;
   $("onlyMiss").onchange=e=>{ONLYMISS=e.target.checked;renderRekap()};
+  $("btnRekap").onclick=()=>renderRekap();
 }
 
 async function render(){
@@ -423,12 +461,14 @@ async function render(){
   if(!ROSTER||!nipp) return;
   const rs=ROSTER.people[nipp];
   if(!rs){ if(!nipp) return; list.innerHTML='<div class="card err">NIPP tidak ditemukan di roster.</div>';return}
-  $("me").innerHTML=`<b>${rs[0].nama}</b><br><span>NIPP ${nipp} · ${rs[0].jab} · ${BULAN[m]} ${y}</span><div class="msg" id="sync"></div>`;
+  $("me").innerHTML=`<b>${rs[0].nama}</b><br><span>NIPP ${nipp} · ${rs[0].jab} · ${BULAN[m]} ${y}</span><div class="msg" id="sync"></div>${getScript()?'<button class="sec" id="btnRefresh" style="margin-top:4px">↻ Perbarui</button>':""}`;
   setSync(SYNC.msg,SYNC.bad);
+  if($("btnRefresh")) $("btnRefresh").onclick=()=>{skipSync=false;render()};
   $("me").classList.remove("hide");$("pdfBox").classList.remove("hide");
   const n=new Date(y,m+1,0).getDate();
   const all=await dbAll();
-  let done=0,need=0;
+  const rem=remoteOf(nipp,y,m);
+  let done=0,need=0,remOnly=0;
   for(let d=1;d<=n;d++){
     const e=all[keyOf(nipp,y,m,d)];
     const code=live()?codeFor(nipp,d):(e&&e.kode)||"";
@@ -436,15 +476,17 @@ async function render(){
     const inf=info(code);
     const has=e&&(e.serah||(e.fotos&&e.fotos[0]));
     const full=e&&e.serah&&e.fotos&&e.fotos[0];
-    if(!inf.off){need++;if(full)done++}
+    const r=rem[d-1]||"",remL=!full&&r==="L",remS=!full&&!remL&&!has&&r==="S";
+    if(!inf.off){need++;if(full||remL)done++}
+    if(remL&&!inf.off) remOnly++;
     const dow=new Date(y,m,d).getDay();
     const div=document.createElement("div");
-    div.className="day "+(inf.off&&!has?"off ":"")+(dow===0?"sun ":"")+(full?"ok":has?"part":"");
-    div.innerHTML=`<div class="d">${d} ${BULAN[m].slice(0,3)}<small>${HARI[dow]}</small></div><div class="k">${inf.label}</div><div class="s">${full?"Lengkap ✓":has?"Sebagian":inf.off?"—":"Belum"}</div>`;
+    div.className="day "+(inf.off&&!has&&!remL&&!remS?"off ":"")+(dow===0?"sun ":"")+(full?"ok":remL||remS?"rem":has?"part":"");
+    div.innerHTML=`<div class="d">${d} ${BULAN[m].slice(0,3)}<small>${HARI[dow]}</small></div><div class="k">${inf.label}</div><div class="s">${full?"Lengkap ✓":remL?"Lengkap · perangkat lain":has?"Sebagian":remS?"Sebagian · perangkat lain":inf.off?"—":"Belum"}</div>`;
     div.onclick=()=>openDay(d);
     list.appendChild(div);
   }
-  $("pdfMsg").textContent=`Dinas lengkap: ${done} dari ${need}. PDF hanya memuat hari yang sudah ada isinya.`;
+  $("pdfMsg").textContent=`Dinas lengkap: ${done} dari ${need}. PDF hanya memuat hari yang isinya ada di perangkat ini.`+(remOnly?` ${remOnly} hari lengkap diisi dari perangkat lain dan belum ada di sini, jadi tidak ikut PDF dari perangkat ini.`:"");
   if(skipSync) skipSync=false; else syncMine(nipp,y,m,all);
 }
 
@@ -471,7 +513,10 @@ async function openDay(d){
     const inf=info(code);
     const slot=(id,title,img,max)=>`<div class="slot"><b>${title}</b>${img?`<img src="${img}">`:'<div class="msg">Belum ada gambar</div>'}
       <div class="a"><label class="btn sec" style="flex:1">${img?"Ganti":"Pilih / ambil foto"}<input type="file" accept="image/*" data-id="${id}" data-max="${max}"></label>${img?`<button class="dng" data-del="${id}">Hapus</button>`:""}</div></div>`;
+    const r=remoteOf(nipp,y,m)[d-1]||"",st=stateOf(e),box='style="background:#e0f2fe;color:#0369a1;padding:8px;border-radius:8px"';
+    const ban=r==="L"&&st!=="L"?`<div class="msg" ${box}>Tanggal ini sudah tercatat <b>lengkap</b> dari perangkat lain. Kalau kamu unggah lagi di sini, hasilnya hanya menjadi salinan di perangkat ini.</div>`:r==="S"&&st==="-"?`<div class="msg" ${box}>Tanggal ini sudah tercatat <b>sebagian</b> dari perangkat lain.</div>`:"";
     dlg.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><b>${HARI[dow]}, ${d} ${BULAN[m]} ${y}</b><div class="msg" style="margin:0">${kegiatan(inf.label)}</div></div><button class="sec" id="cls">Tutup</button></div>
+      ${ban}
       ${slot("serah","Lembar Serah Terima Dinas",e.serah,1600)}
       ${slot("f0","Foto Dokumentasi Kegiatan",e.fotos[0],1100)}`;
     $("cls").onclick=()=>dlg.close();
@@ -479,15 +524,15 @@ async function openDay(d){
       if(!inp.files[0]) return;
       try{
         const data=await compress(inp.files[0],+inp.dataset.max);
-        const cur=(await dbGet(k))||{serah:null,fotos:[null,null]};
+        const cur=(await dbGet(k))||{serah:null,fotos:[null,null]},prev=stateOf(cur);
         if(inp.dataset.id==="serah") cur.serah=data; else cur.fotos[+inp.dataset.id[1]]=data;
-        cur.kode=code; await dbPut(k,cur); pushStatus(nipp,y,m,d,stateOf(cur)); await draw(); skipSync=true; render();
+        cur.kode=code; await dbPut(k,cur); pushAfterEdit(nipp,y,m,d,prev,stateOf(cur)); await draw(); skipSync=true; render();
       }catch(err){alert(err.message)}
     });
     dlg.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
-      const cur=(await dbGet(k))||{serah:null,fotos:[null,null]};
+      const cur=(await dbGet(k))||{serah:null,fotos:[null,null]},prev=stateOf(cur);
       const id=b.dataset.del; if(id==="serah")cur.serah=null;else cur.fotos[+id[1]]=null;
-      await dbPut(k,cur); pushStatus(nipp,y,m,d,stateOf(cur)); await draw(); skipSync=true; render();
+      await dbPut(k,cur); pushAfterEdit(nipp,y,m,d,prev,stateOf(cur)); await draw(); skipSync=true; render();
     });
   }
   await draw(); dlg.showModal();
@@ -572,10 +617,28 @@ const fromHash=()=>{const h=location.hash.replace(/^#/,"").trim();return /^\d{4,
 $("stn").textContent=CONFIG.stasiun;
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 $("nipp").value=fromHash()||LS("nipp")||"";
-$("ssId").value=LS("ssId")||DEFAULT_ID;
-$("ssTab").value=LS("ssTab")||"";
-$("scUrl").value=LS("scUrl")||CONFIG.scriptUrl;
-$("scKey").value=LS("scKey")||CONFIG.kunci;
+$("ssId").value=getId();
+$("ssTab").value=(CONFIG.tab||LS("ssTab")||"");
+$("scUrl").value=getScript();
+$("scKey").value=getKey();
+$("c1info").classList.toggle("hide",!LOCKED);
+$("c1edit").classList.toggle("hide",LOCKED);
+if(LOCKED){
+  const id=CONFIG.spreadsheetId;
+  $("c1infoText").innerHTML="Pengaturan Cara 1 diatur dari <b>index.html</b> dan berlaku untuk semua orang, jadi tidak bisa diubah di sini.<br>ID roster: "+id.slice(0,6)+"…"+id.slice(-4)+" · Tab: "+(CONFIG.tab||"otomatis sesuai bulan")+" · Kunci: "+(CONFIG.kunci?"terisi ✓":"<b>kosong</b> (status tidak bisa dikirim)");
+}
+$("reloadCfg").onclick=()=>loadRoster();
+$("genKey").onclick=()=>{
+  const ab="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789",a=new Uint32Array(24);
+  crypto.getRandomValues(a);
+  const k=Array.from(a,x=>ab[x%ab.length]).join("");
+  $("scKey").value=k;
+  $("genMsg").innerHTML="Kunci baru: <code>"+k+"</code><br>Salin ke <b>KUNCI</b> di Code.gs dan ke <b>kunci</b> di CONFIG index.html, lalu Simpan.";
+  try{navigator.clipboard.writeText(k)}catch(e){}
+};
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden&&getScript()&&Date.now()-lastFetch>20000&&!$("dlg").open){skipSync=false;render()}
+});
 $("gear").onclick=()=>$("settings").classList.toggle("hide");
 $("saveCfg").onclick=()=>{
   const raw=$("ssId").value.trim(),mm=raw.match(/\/d\/([\w-]+)/),id=mm?mm[1]:raw;
