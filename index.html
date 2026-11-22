@@ -347,6 +347,12 @@ input[type=password]{width:100%;min-width:0;background:var(--bg);border:1px soli
           <div class="full actions"><button class="btn pri" type="submit">Simpan anggota</button><button class="btn" id="am-reset" type="button">Kosongkan form</button></div>
         </form>
         <p class="msg" id="am-msg" role="status"></p></div>
+      <div class="asec"><h3>Status anggota dan arsip</h3>
+        <p class="note" style="margin:0">Cek siapa yang sudah lengkap. <b>Bantu isi</b> membuka akun anggota atas nama admin (untuk anggota yang sakit atau tidak sempat unggah: foto smartcard, absensi, foto dari WhatsApp, jadwal, sampai PDF). <b>Unduh PDF</b> mengambil PDF yang sudah dikirim anggota ke Drive kantor.</p>
+        <div class="grid"><div><label for="s-bulan">Bulan</label><input type="month" id="s-bulan"></div>
+          <div class="actions" style="align-self:end"><button class="btn" id="s-load" type="button">Muat status</button></div></div>
+        <p class="msg" id="s-msg" role="status"></p>
+        <div id="s-hasil"></div></div>
       <div class="asec"><h3>Jadwal dinas bulanan (roster)</h3>
         <p class="note" style="margin:0">Salin roster dari Excel (termasuk kolom NIPP dan baris tanggal 1 2 3 …) lalu tempel di bawah. NIPP yang sudah terdaftar otomatis dibuatkan jadwalnya. Anggota tetap bisa mengubah jadwalnya sendiri.</p>
         <div class="grid"><div><label for="r-bulan">Bulan roster</label><input type="month" id="r-bulan"></div>
@@ -992,7 +998,8 @@ $('#picker').addEventListener('change',async e=>{
   try{
     const edge = t.kind==='day' ? (t.k==='s'?2300:1200) : t.kind==='file' ? FILES.find(x=>x.k===t.k).max : 2000;
     const url=await shrink(f,edge,t.kind==='day'&&t.k==='g'?.8:.85);
-    const gdate=(t.kind==='day'&&t.k==='g'&&f.lastModified)?isoFromMs(f.lastModified):'';
+    const wa=(f.name||'').match(/^(?:IMG|VID)-(\d{4})(\d{2})(\d{2})-WA\d+/i)||(f.name||'').match(/WhatsApp (?:Image|Video) (\d{4})-(\d{2})-(\d{2})/i);
+    const gdate=(t.kind==='day'&&t.k==='g') ? (wa?`${wa[1]}-${wa[2]}-${wa[3]}`:(f.lastModified?isoFromMs(f.lastModified):'')) : '';
     storePhoto(t,url,gdate);
   }catch(err){ toast('Foto tidak bisa dibaca. Coba pilih file gambar lain.'); }
 });
@@ -1271,7 +1278,7 @@ $('#send').addEventListener('click',async()=>{
     for(let i=0;i<total;i++){
       $('#sendMsg').textContent=`Mengirim ke Drive kantor… bagian ${i+1} dari ${total}`;
       for(let tr=0;;tr++){
-        try{ r=await api('sendOffice',{...auth(),uploadId:uid,idx:i,total,name:built.name,chunk:b64.slice(i*CH,(i+1)*CH)}); break; }
+        try{ r=await api('sendOffice',{...auth(),uploadId:uid,idx:i,total,name:built.name,month:key(),chunk:b64.slice(i*CH,(i+1)*CH)}); break; }
         catch(e){ if(e&&e.net&&tr<2){ await sleep(1500*(tr+1)); continue; } throw e; }
       }
     }
@@ -1402,6 +1409,58 @@ async function rosterGo(apply){
 }
 $('#r-cek').addEventListener('click',()=>rosterGo(false));
 $('#r-simpan').addEventListener('click',()=>rosterGo(true));
+
+/* status anggota, bantu isi, unduh arsip (admin) */
+const ST = {month:'', list:[]};
+(function(){ $('#s-bulan').value=$('#r-bulan').value; })();
+async function stLoad(){
+  const mv=$('#s-bulan').value; if(!/^\d{4}-\d\d$/.test(mv)){ $('#s-msg').textContent='Pilih bulan dulu.'; return; }
+  $('#s-msg').textContent='Memuat…';
+  try{
+    const r=await api('adminStatus',{token:AD.token,month:mv}); ST.month=mv; ST.list=r.anggota; $('#s-msg').textContent='';
+    const yes=v=>v?'<span style="color:#1a7f4b">✓</span>':'<span style="color:#c0392b">✗</span>';
+    let h=`<div class="rtab"><table><thead><tr><th>Nama</th><th>Jadwal</th><th>Foto dinas</th><th>Kartu</th><th>Absen</th><th>Ket.</th><th>PDF</th><th></th></tr></thead><tbody>`;
+    r.anggota.forEach((a,i)=>{
+      const warn=[]; if(a.tgl) warn.push(a.tgl+' cek tanggal'); if(a.bukti) warn.push(a.bukti+' bukti kurang');
+      h+=`<tr><td class="nm" title="NIPP ${esc(a.nipp)}">${a.siap?'✅ ':''}${esc(a.nama)}</td><td>${a.isi}/${a.hari}</td><td>${a.lengkap}/${a.dinas}${warn.length?`<br><small style="color:#c0392b">${esc(warn.join(', '))}</small>`:''}</td><td>${yes(a.kartu)}</td><td>${yes(a.absen)}</td><td>${a.catatan?`${a.catatan-a.catatanKosong}/${a.catatan}`:'-'}</td><td>${a.pdf?`<small>${esc(a.pdf.at)}</small>`:'<span style="color:#c0392b">belum</span>'}</td><td style="white-space:nowrap"><button class="btn sm" type="button" data-help="${i}">Bantu isi</button>${a.pdf?` <button class="btn sm" type="button" data-getpdf="${i}">Unduh PDF</button>`:''}</td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+    const sp=r.anggota.filter(a=>a.siap).length, kp=r.anggota.filter(a=>a.pdf).length;
+    h+=`<p class="note" style="margin:6px 0">${sp} dari ${r.anggota.length} anggota sudah lengkap (✅). ${kp} sudah mengirim PDF ke Drive kantor.</p>`;
+    if(kp) h+=`<div class="actions"><button class="btn" type="button" id="s-all">Unduh semua PDF (${kp})</button></div>`;
+    $('#s-hasil').innerHTML=h;
+  }catch(err){ $('#s-msg').textContent=(err&&err.message)||'Gagal memuat.'; }
+}
+$('#s-load').addEventListener('click',stLoad);
+$('#s-bulan').addEventListener('input',()=>{ $('#s-hasil').innerHTML=''; });
+function saveBlob(blob,name){
+  const u=URL.createObjectURL(blob), a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),30000);
+}
+async function stGetPdf(a,note){
+  const parts=[]; let total=1;
+  for(let i=0;i<total;i++){
+    note(`${a.nama}: bagian ${i+1}…`);
+    let r; for(let tr=0;;tr++){ try{ r=await api('adminGetPdf',{token:AD.token,nipp:a.nipp,month:ST.month,part:i}); break; }catch(e){ if(e&&e.net&&tr<2){ await sleep(1500); continue; } throw e; } }
+    total=r.total; parts.push(Uint8Array.from(atob(r.data),c=>c.charCodeAt(0))); if(i===0) a._name=r.name;
+  }
+  saveBlob(new Blob(parts,{type:'application/pdf'}),a._name||`IMO_${a.nipp}_${ST.month}.pdf`);
+}
+$('#s-hasil').addEventListener('click',async e=>{
+  const h=e.target.closest('[data-help]'), g=e.target.closest('[data-getpdf]'), all=e.target.closest('#s-all');
+  try{
+    if(g){ await stGetPdf(ST.list[+g.dataset.getpdf],t=>$('#s-msg').textContent=t); $('#s-msg').textContent='PDF diunduh.'; }
+    if(all){ all.disabled=true; for(const a of ST.list){ if(!a.pdf) continue; await stGetPdf(a,t=>$('#s-msg').textContent=t); await sleep(700); } $('#s-msg').textContent='Semua PDF diunduh.'; all.disabled=false; }
+    if(h){
+      const a=ST.list[+h.dataset.help];
+      const r=await api('adminImpersonate',{token:AD.token,nipp:a.nipp});
+      const [y,m]=ST.month.split('-').map(Number); state.y=y; state.m=m; state.months={};
+      $('#adm').hidden=true; AD.token=''; $('#a-pin').value='';
+      await afterLogin(r,a.nipp,false);
+      $('#who').textContent=`Admin membantu: ${r.profile.nama} · ${r.profile.nipp}`;
+      toast('Kamu bekerja atas nama '+r.profile.nama+'. Tekan Keluar bila selesai.');
+    }
+  }catch(err){ $('#s-msg').textContent=(err&&err.message)||'Gagal.'; }
+});
 
 /* ---------- contoh (tanpa cloud) ---------- */
 let armed=false;
