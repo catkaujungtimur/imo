@@ -198,7 +198,7 @@ input[type=password]{width:100%;min-width:0;background:var(--bg);border:1px soli
   <header class="top">
     <div class="logo" aria-hidden="true">IMO</div>
     <div class="hd"><h1>Penyusun IMO</h1><p id="who">Laporan kegiatan pengoperasian bulanan</p></div>
-    <div class="hr"><span class="chip na" id="sync" hidden></span><button class="btn sm" id="retry" type="button" hidden>Kirim ulang</button><button class="btn sm" id="logout" type="button" hidden>Keluar</button></div>
+    <div class="hr"><select id="stsel" hidden aria-label="Stasiun yang sedang dikerjakan" style="max-width:190px;font-size:14px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit"></select><span class="chip na" id="sync" hidden></span><button class="btn sm" id="retry" type="button" hidden>Kirim ulang</button><button class="btn sm" id="logout" type="button" hidden>Keluar</button></div>
   </header>
 
   <div class="demo" id="demoBar">
@@ -316,7 +316,34 @@ input[type=password]{width:100%;min-width:0;background:var(--bg);border:1px soli
     <label class="chk" for="l-ingat"><input type="checkbox" id="l-ingat"> Ingat saya di perangkat ini</label>
     <button class="btn pri" id="l-go" type="submit">Masuk</button>
     <p class="msg" id="l-msg" role="alert"></p>
+    <button class="link" type="button" id="l-daftar" style="justify-self:start">Belum punya akun? Daftar</button>
     <button class="link" type="button" id="l-admin" style="justify-self:start">Menu admin</button>
+  </form>
+</div>
+<div class="gate" id="reg" hidden>
+  <form class="gcard" id="reg-form" style="max-height:92vh;overflow:auto">
+    <div class="nh" style="margin:0"><h2>Daftar</h2><button class="btn sm" id="reg-x" type="button">Tutup</button></div>
+    <p class="sub" style="margin:0">Satu NIPP, satu PIN. Wakilan ke stasiun lain bisa ditambahkan setelah masuk.</p>
+    <div><label for="reg-nipp">NIPP</label><input type="text" id="reg-nipp" inputmode="numeric" autocomplete="username" required></div>
+    <div><label for="reg-nama">Nama</label><input type="text" id="reg-nama" autocomplete="name" required></div>
+    <div><label for="reg-jabatan">Jabatan</label><input type="text" id="reg-jabatan" placeholder="mis. PPKA" autocomplete="off"></div>
+    <div id="reg-st"></div>
+    <div><label for="reg-pin">PIN (minimal 6 karakter)</label><input type="password" id="reg-pin" autocomplete="new-password" required></div>
+    <div><label for="reg-pin2">Ulangi PIN</label><input type="password" id="reg-pin2" autocomplete="new-password" required></div>
+    <label class="chk" for="reg-ingat"><input type="checkbox" id="reg-ingat"> Ingat saya di perangkat ini</label>
+    <button class="btn pri" id="reg-go" type="submit">Daftar dan masuk</button>
+    <p class="msg" id="reg-msg" role="alert"></p>
+    <p class="note" style="margin:0">Catatan: PDF dari akun baru dapat diunduh. Pengiriman ke Drive kantor aktif setelah admin memverifikasi.</p>
+  </form>
+</div>
+<div class="gate" id="stadd" hidden>
+  <form class="gcard" id="sa-form" style="max-height:92vh;overflow:auto">
+    <div class="nh" style="margin:0"><h2>Tambah stasiun wakilan</h2><button class="btn sm" id="sa-x" type="button">Tutup</button></div>
+    <p class="sub" style="margin:0">Dipakai saat kamu berdinas di stasiun lain. Setiap stasiun punya jadwal, foto, dan PDF sendiri.</p>
+    <div id="sa-st"></div>
+    <div><label for="sa-jab">Jabatan di stasiun itu</label><input type="text" id="sa-jab" autocomplete="off"></div>
+    <button class="btn pri" id="sa-go" type="submit">Tambah</button>
+    <p class="msg" id="sa-msg" role="alert"></p>
   </form>
 </div>
 <div class="gate" id="adm" hidden>
@@ -344,9 +371,19 @@ input[type=password]{width:100%;min-width:0;background:var(--bg);border:1px soli
           <div><label for="am-abbr">Singkatan stasiun (nama file)</label><input type="text" id="am-abbr" autocomplete="off"></div>
           <div><label for="am-pin">PIN</label><input type="text" id="am-pin" autocomplete="off"></div>
           <label class="chk full" for="am-aktif"><input type="checkbox" id="am-aktif" checked> Anggota aktif</label>
+          <label class="chk full" for="am-verif"><input type="checkbox" id="am-verif" checked> Terverifikasi (boleh mengirim PDF ke Drive kantor stasiunnya)</label>
           <div class="full actions"><button class="btn pri" type="submit">Simpan anggota</button><button class="btn" id="am-reset" type="button">Kosongkan form</button></div>
         </form>
         <p class="msg" id="am-msg" role="status"></p></div>
+      <div class="asec"><h3>Daftar stasiun</h3>
+        <p class="note" style="margin:0">Stasiun lain muncul di sini saat ada yang mendaftar atau berdinas wakilan. Isi <b>folder Drive kantor</b> stasiun itu bila sudah dibagikan ke Gmail bersama (Editor); kosongkan bila anggotanya hanya mengunduh.</p>
+        <div id="st-list"></div>
+        <form id="st-form" class="grid"><input type="hidden" id="st-sid">
+          <div><label for="st-abbr">Singkatan stasiun</label><input type="text" id="st-abbr" autocomplete="off" required></div>
+          <div><label for="st-daop">DAOP</label><input type="text" id="st-daop" autocomplete="off"></div>
+          <div class="full"><label for="st-unit">Unit kerja</label><input type="text" id="st-unit" autocomplete="off"></div>
+          <div class="full actions"><button class="btn" type="submit">Simpan stasiun</button></div></form>
+        <p class="msg" id="st-msg" role="status"></p></div>
       <div class="asec"><h3>Status anggota dan arsip</h3>
         <p class="note" style="margin:0">Cek siapa yang sudah lengkap. <b>Bantu isi</b> membuka akun anggota atas nama admin (untuk anggota yang sakit atau tidak sempat unggah: foto smartcard, absensi, foto dari WhatsApp, jadwal, sampai PDF). <b>Unduh PDF</b> mengambil PDF yang sudah dikirim anggota ke Drive kantor.</p>
         <div class="grid"><div><label for="s-bulan">Bulan</label><input type="month" id="s-bulan"></div>
@@ -354,7 +391,7 @@ input[type=password]{width:100%;min-width:0;background:var(--bg);border:1px soli
         <p class="msg" id="s-msg" role="status"></p>
         <div id="s-hasil"></div></div>
       <div class="asec"><h3>Jadwal dinas bulanan (roster)</h3>
-        <p class="note" style="margin:0">Salin roster dari Excel (termasuk kolom NIPP dan baris tanggal 1 2 3 …) lalu tempel di bawah. NIPP yang sudah terdaftar otomatis dibuatkan jadwalnya. Anggota tetap bisa mengubah jadwalnya sendiri.</p>
+        <p class="note" style="margin:0">Salin roster dari Excel (termasuk kolom NIPP dan baris tanggal 1 2 3 …) lalu tempel di bawah. NIPP yang sudah terdaftar di stasiun utama otomatis dibuatkan jadwalnya. Anggota tetap bisa mengubah jadwalnya sendiri.</p>
         <div class="grid"><div><label for="r-bulan">Bulan roster</label><input type="month" id="r-bulan"></div>
           <label class="chk" for="r-timpa" style="align-self:end"><input type="checkbox" id="r-timpa"> Timpa juga perubahan manual anggota</label></div>
         <textarea id="r-text" rows="6" placeholder="Tempel di sini (Ctrl+V)" aria-label="Tempel roster dari Excel" style="font:12px/1.3 monospace;width:100%;box-sizing:border-box"></textarea>
@@ -457,7 +494,7 @@ const state = {
                  : {nama:'AKHMAD FADLI',nipp:'53595',jabatan:'PPKA',unit:'UPT STASIUN BESAR C KETAPANG',daop:'9 JEMBER',abbr:'STA.KETAPANG'},
   y: CLOUD ? nowD.getFullYear() : 2026,
   m: CLOUD ? nowD.getMonth()+1 : 10,
-  months:{}, nipp:'', token:'', office:false, full:false
+  months:{}, nipp:'', token:'', sid:'', profiles:[], stasiun:[], office:false, full:false
 };
 const key = () => state.y+'-'+pad(state.m);
 function cur(){ return state.months[key()] || (state.months[key()] = {days:{},files:{},notes:[]}); }
@@ -593,7 +630,7 @@ async function api(action,payload){
   if(!j.ok) throw {code:j.error,message:j.message||'Gagal.'};
   return j;
 }
-const auth = () => ({nipp:state.nipp,token:state.token});
+const auth = () => state.sid ? ({nipp:state.nipp,token:state.token,sid:state.sid}) : ({nipp:state.nipp,token:state.token});
 
 /* antrean simpan: berurutan, mencoba ulang saat sinyal putus */
 const Q = {list:[],dead:[],running:false};
@@ -996,8 +1033,8 @@ $('#picker').addEventListener('change',async e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f||!target) return;
   const t=target; target=null;
   try{
-    const edge = t.kind==='day' ? (t.k==='s'?2300:1200) : t.kind==='file' ? FILES.find(x=>x.k===t.k).max : 2000;
-    const url=await shrink(f,edge,t.kind==='day'&&t.k==='g'?.8:.85);
+    const edge = t.kind==='day' ? (t.k==='s'?3000:1200) : t.kind==='file' ? FILES.find(x=>x.k===t.k).max : 2000;
+    const url=await shrink(f,edge,t.kind==='day'&&t.k==='g'?.8:(t.kind==='day'&&t.k==='s'?.95:.85));
     const wa=(f.name||'').match(/^(?:IMG|VID)-(\d{4})(\d{2})(\d{2})-WA\d+/i)||(f.name||'').match(/WhatsApp (?:Image|Video) (\d{4})-(\d{2})-(\d{2})/i);
     const gdate=(t.kind==='day'&&t.k==='g') ? (wa?`${wa[1]}-${wa[2]}-${wa[3]}`:(f.lastModified?isoFromMs(f.lastModified):'')) : '';
     storePhoto(t,url,gdate);
@@ -1095,6 +1132,22 @@ function frame(x,x0,y0,x1,y1){ x.strokeStyle='#000'; x.lineWidth=1.6; x.strokeRe
 function vline(x,px,y0,y1){ x.beginPath(); x.moveTo(px,y0); x.lineTo(px,y1); x.stroke(); }
 function hline(x,py,x0,x1){ x.beginPath(); x.moveTo(x0,py); x.lineTo(x1,py); x.stroke(); }
 
+/* Margin putih form dipotong supaya tulisan memenuhi kolom (lebih besar dan garis kotak mepet). */
+const trimImgCache=new Map();
+function trimmedImg(img){
+  if(!img) return Promise.resolve(null);
+  if(trimImgCache.has(img.__ref)) return trimImgCache.get(img.__ref);
+  const tr=trimWhite(img), ref=img.__ref+'_t'; dataMem.set(ref,tr.url);
+  const p=new Promise(ok=>{ const i=new Image(); i.onload=()=>{ i.__ref=ref; ok(i); }; i.onerror=()=>ok(img); i.src=tr.url; });
+  trimImgCache.set(img.__ref,p); return p;
+}
+/* Kotak foto serah terima: setinggi kolom dan mengikuti bentuk fotonya, jadi garis kotak mepet ke form. */
+function hugBox(img){
+  const cx=565, cy=447.5, mw=556, mh=735;
+  if(!img||!img.width) return [cx-260,cy-mh/2,520,mh];
+  const k=Math.min(mw/img.width,mh/img.height), w=Math.round(img.width*k), h=Math.round(img.height*k);
+  return [Math.round(cx-w/2),Math.round(cy-h/2),w,h];
+}
 async function drawDay(x,d){
   const o=cur().days[d]||{}, t=o.t, meta=t?TYPES[t]:null;
   x.fillStyle='#fff'; x.fillRect(0,0,W,H);
@@ -1109,12 +1162,13 @@ async function drawDay(x,d){
   lines(x,wrap(x,lab,118).join('\n'),210,96,23);
   x.textBaseline='middle';
   if(meta.dinas){
-    const [si,gi]=await Promise.all([loadImg(o.s),loadImg(o.g)]);
-    framedPhoto(x,si,328,77,475,719,false,o.s?'Foto gagal dimuat':'Serah terima belum diunggah');
+    const [si0,gi]=await Promise.all([loadImg(o.s),loadImg(o.g)]);
+    const si=await trimmedImg(si0);
+    framedPhoto(x,si,...hugBox(si),false,o.s?'Foto gagal dimuat':'Serah terima belum diunggah');
     framedPhoto(x,gi,867,157,562,562,true,o.g?'Foto gagal dimuat':'Foto kegiatan belum diunggah');
   } else if(meta.special){
     const n=noteOf(o), ci=await loadImg(n&&n.img);
-    framedPhoto(x,ci,328,77,475,719,false,'Bukti belum dipilih');
+    framedPhoto(x,ci,...hugBox(ci),false,'Bukti belum dipilih');
     x.strokeStyle='#2f5597'; x.lineWidth=1.2; x.strokeRect(867,157,562,562);
     let fs=84; x.fillStyle='#d90000'; x.textAlign='center';
     do{ x.font=`900 ${fs}px Arial Black, Arial, sans-serif`; fs-=4; } while(x.measureText(lab).width>520 && fs>24);
@@ -1191,7 +1245,7 @@ function trimWhite(img){
   const m=14; x0=Math.max(0,x0-m); y0=Math.max(0,y0-m); x1=Math.min(c.width-1,x1+m); y1=Math.min(c.height-1,y1+m);
   const t=document.createElement('canvas'); t.width=x1-x0+1; t.height=y1-y0+1;
   const tx=t.getContext('2d'); tx.fillStyle='#fff'; tx.fillRect(0,0,t.width,t.height); tx.drawImage(c,x0,y0,t.width,t.height,0,0,t.width,t.height);
-  const r={canvas:t,url:t.toDataURL('image/jpeg',.9),w:t.width,h:t.height}; trimCache.set(img.__ref,r); return r;
+  const r={canvas:t,url:t.toDataURL('image/jpeg',.95),w:t.width,h:t.height}; trimCache.set(img.__ref,r); return r;
 }
 const appH = tr => Math.round(AT+(AW-2*AM)*tr.h/tr.w+AM);
 function appendixCanvas(tr,cap,scale){
@@ -1248,8 +1302,8 @@ $('#mk').addEventListener('click',async()=>{
     built={blob,name,doc,jpg,names};
     $('#thumbs').innerHTML=thumbs.map((t,i)=>`<button type="button" data-pg="${i}" aria-label="Halaman ${i+1}: ${names[i]}"><img alt="" src="${t}"></button>`).join('');
     $('#sizeNote').textContent=`${names.length} halaman · ${(blob.size/1048576).toFixed(1)} MB · ${name}`;
-    $('#send').disabled=!(CLOUD&&state.office);
-    $('#sendNote').textContent = !CLOUD ? 'Kirim ke Drive kantor aktif setelah penyimpanan cloud terpasang.' : (state.office?'':'Folder Drive kantor belum diatur. Minta admin mengaturnya lewat menu Admin.');
+    $('#send').disabled=!(CLOUD&&state.office); $('#send').hidden=CLOUD&&!state.office;
+    $('#sendNote').textContent = !CLOUD ? 'Kirim ke Drive kantor aktif setelah penyimpanan cloud terpasang.' : (state.office?'':'PDF kamu unduh, lalu kirim ke kantormu sendiri.');
     $('#result').hidden=false; setMk('PDF siap. Ketuk halaman untuk memeriksa. Zoom di pembaca PDF untuk membaca tulisan kecil.');
   }catch(err){ setMk('Gagal membuat PDF: '+(err&&err.message?err.message:'coba lagi.')); }
   btn.disabled=false;
@@ -1290,11 +1344,12 @@ $('#send').addEventListener('click',async()=>{
 });
 
 /* ---------- masuk, keluar, admin ---------- */
-function remember(){ try{ if(localStorage.getItem('imo.sess')) localStorage.setItem('imo.sess',JSON.stringify({nipp:state.nipp,token:state.token})); }catch(e){} }
+function remember(){ try{ if(localStorage.getItem('imo.sess')) localStorage.setItem('imo.sess',JSON.stringify({nipp:state.nipp,token:state.token,sid:state.sid})); }catch(e){} }
 async function afterLogin(r,nipp,keep){
   state.profile=r.profile; state.nipp=nipp; state.token=r.token; state.office=!!r.kantor;
-  try{ if(keep) localStorage.setItem('imo.sess',JSON.stringify({nipp,token:r.token})); else localStorage.removeItem('imo.sess'); }catch(e){}
-  $('#who').textContent=`${r.profile.nama} · ${r.profile.nipp}`;
+  state.sid=r.profile.sid||''; state.profiles=r.profiles||[]; state.stasiun=r.stasiun||[];
+  try{ if(keep) localStorage.setItem('imo.sess',JSON.stringify({nipp,token:r.token,sid:state.sid})); else localStorage.removeItem('imo.sess'); }catch(e){}
+  $('#who').textContent=`${r.profile.nama} · ${r.profile.nipp}`; renderStsel();
   $('#logout').hidden=false; $('#pinbox').hidden=false; $('#profNote').hidden=false; $('#demoBar').hidden=true;
   fillProfile(); $('#gate').hidden=true;
   await loadMonth(); curDay=firstIncomplete(); renderSched(); renderFiles(); renderNotes(); refreshHarian(); renderChecks(); setSync();
@@ -1306,8 +1361,8 @@ function logout(force,msg){
   }
   outArm=false; $('#logout').textContent='Keluar';
   try{ localStorage.removeItem('imo.sess'); }catch(e){}
-  state.nipp=''; state.token=''; state.months={}; Q.list=[]; Q.dead=[]; pendingSet.clear(); dataMem.clear(); imgCache.clear(); idbClear();
-  $('#logout').hidden=true; $('#pinbox').hidden=true; $('#who').textContent='Laporan kegiatan pengoperasian bulanan'; setSync();
+  state.nipp=''; state.token=''; state.sid=''; state.profiles=[]; state.months={}; Q.list=[]; Q.dead=[]; pendingSet.clear(); dataMem.clear(); imgCache.clear(); idbClear();
+  $('#logout').hidden=true; $('#pinbox').hidden=true; $('#stsel').hidden=true; $('#who').textContent='Laporan kegiatan pengoperasian bulanan'; setSync();
   $('#l-pin').value=''; $('#l-msg').textContent=msg||''; $('#gate').hidden=false; resetResult();
 }
 $('#logout').addEventListener('click',()=>logout(false));
@@ -1319,15 +1374,85 @@ $('#gform').addEventListener('submit',async e=>{
   b.disabled=false;
 });
 
+/* ---------- pilihan stasiun (profil), pendaftaran ---------- */
+const stLabel = p => p.abbr + (p.home?'':' (wakilan)');
+function renderStsel(){
+  const el=$('#stsel'); if(!CLOUD||!state.token){ el.hidden=true; return; }
+  el.innerHTML=state.profiles.map(p=>`<option value="${esc(p.sid)}"${p.sid===state.sid?' selected':''}>${esc(stLabel(p))}</option>`).join('')+'<option value="__add">+ Tambah stasiun wakilan…</option>';
+  el.hidden=false;
+}
+let keepSess=false;
+async function switchProfile(sid){
+  if(Q.list.length||Q.dead.length||pendingSet.size){ toast('Masih ada foto yang belum terkirim. Tunggu sampai "Tersimpan di cloud", lalu pindah stasiun.'); renderStsel(); return; }
+  $('#busy').hidden=false;
+  try{
+    keepSess=!!localStorage.getItem('imo.sess');
+    const r=await api('login',{nipp:state.nipp,token:state.token,sid});
+    state.months={}; resetResult(); curDay=1;
+    await afterLogin(r,state.nipp,keepSess);
+  }catch(e){ toast((e&&e.message)||'Gagal pindah stasiun.'); renderStsel(); }
+  $('#busy').hidden=true;
+}
+/* kotak pilih stasiun: stasiun yang ada, atau stasiun baru */
+function stPicker(box,list,withUtama){
+  const opts=list.filter(s=>withUtama||s.sid!=='UTAMA'||true).map(s=>`<option value="${esc(s.sid)}">${esc(s.abbr)}${s.unit?' · '+esc(s.unit):''}</option>`).join('');
+  box.innerHTML=`<label>Stasiun</label><select class="sp-sel">${opts}<option value="__baru">Stasiun lain (belum ada di daftar)…</option></select>
+   <div class="sp-new grid" hidden><div><label>Singkatan stasiun (untuk nama file)</label><input type="text" class="sp-abbr" autocomplete="off" placeholder="mis. STA.KECIL"></div><div><label>DAOP</label><input type="text" class="sp-daop" autocomplete="off"></div><div class="full"><label>Unit kerja</label><input type="text" class="sp-unit" autocomplete="off" placeholder="mis. UPT STASIUN KECIL"></div></div>`;
+  const sel=box.querySelector('.sp-sel'), nw=box.querySelector('.sp-new');
+  if(!list.length) sel.value='__baru';
+  const sync=()=>{ nw.hidden=sel.value!=='__baru'; }; sel.addEventListener('change',sync); sync();
+  return ()=> sel.value==='__baru' ? {baru:{abbr:box.querySelector('.sp-abbr').value,daop:box.querySelector('.sp-daop').value,unit:box.querySelector('.sp-unit').value}} : {sid:sel.value};
+}
+let regGet=null, addGet=null;
+async function stasiunList(){ try{ const r=await api('stasiunList',{}); return r.stasiun||[]; }catch(e){ return state.stasiun||[]; } }
+$('#l-daftar').addEventListener('click',async()=>{
+  $('#reg').hidden=false; $('#reg-msg').textContent='';
+  regGet=stPicker($('#reg-st'),await stasiunList(),true);
+});
+$('#reg-x').addEventListener('click',()=>{ $('#reg').hidden=true; });
+$('#reg-form').addEventListener('submit',async e=>{
+  e.preventDefault(); const g=k=>$('#reg-'+k).value.trim();
+  if(g('pin')!==$('#reg-pin2').value){ $('#reg-msg').textContent='PIN dan ulangi PIN tidak sama.'; return; }
+  const b=$('#reg-go'); b.disabled=true; $('#reg-msg').textContent='Mendaftar…';
+  try{
+    const r=await api('register',{nipp:g('nipp'),nama:g('nama'),jabatan:g('jabatan'),pin:$('#reg-pin').value,stasiun:regGet()});
+    $('#reg').hidden=true; $('#reg-pin').value=''; $('#reg-pin2').value='';
+    await afterLogin(r,g('nipp'),$('#reg-ingat').checked); toast('Selamat datang, '+r.profile.nama+'.');
+  }catch(err){ $('#reg-msg').textContent=(err&&err.message)||'Gagal mendaftar.'; }
+  b.disabled=false;
+});
+$('#stsel').addEventListener('change',async e=>{
+  const v=e.target.value;
+  if(v==='__add'){
+    renderStsel(); $('#stadd').hidden=false; $('#sa-msg').textContent=''; $('#sa-jab').value=state.profile.jabatan||'';
+    const have=new Set(state.profiles.map(p=>p.sid));
+    addGet=stPicker($('#sa-st'),(await stasiunList()).filter(s=>!have.has(s.sid)),true);
+    return;
+  }
+  if(v!==state.sid) switchProfile(v);
+});
+$('#sa-x').addEventListener('click',()=>{ $('#stadd').hidden=true; });
+$('#sa-form').addEventListener('submit',async e=>{
+  e.preventDefault(); const b=$('#sa-go'); b.disabled=true; $('#sa-msg').textContent='Menambah…';
+  try{
+    const r=await api('addProfile',{...auth(),sid:'',stasiun:addGet(),jabatan:$('#sa-jab').value});
+    $('#stadd').hidden=true; state.months={}; resetResult(); curDay=1;
+    await afterLogin(r,state.nipp,!!localStorage.getItem('imo.sess')); toast('Stasiun wakilan ditambahkan: '+r.profile.abbr+'.');
+  }catch(err){ $('#sa-msg').textContent=(err&&err.message)||'Gagal.'; }
+  b.disabled=false;
+});
+
 /* admin */
-const AD = {token:'',members:[]};
+const AD = {token:'',members:[],stasiun:[]};
 function renderAdmin(){
-  $('#a-list').innerHTML = AD.members.length ? AD.members.map(m=>`<div class="mrow"><div><b>${esc(m.nama)}</b> <span class="note">NIPP ${esc(m.nipp)} · ${esc(m.jabatan)}${m.aktif?'':' · nonaktif'}</span></div><button class="btn sm" type="button" data-medit="${esc(m.nipp)}">Ubah</button></div>`).join('') : `<p class="note">Belum ada anggota.</p>`;
+  const stn=sid=>{ const s=AD.stasiun.find(x=>x.sid===sid); return s?s.abbr:''; };
+  $('#a-list').innerHTML = AD.members.length ? AD.members.map(m=>`<div class="mrow"><div><b>${esc(m.nama)}</b> <span class="note">NIPP ${esc(m.nipp)} · ${esc(m.jabatan)} · ${esc(stn(m.sid))}${m.aktif?'':' · nonaktif'}${m.verif?'':' · <b style="color:#c0392b">belum diverifikasi</b>'}</span></div><button class="btn sm" type="button" data-medit="${esc(m.nipp)}">${m.verif?'Ubah':'Verifikasi'}</button></div>`).join('') : '<p class="note">Belum ada anggota.</p>';
+  renderStasiunAdmin();
 }
 function fillMember(m){
   const f={nipp:m.nipp||'',nama:m.nama||'',jabatan:m.jabatan||'',unit:m.unit||'',daop:m.daop||'',abbr:m.abbr||''};
   for(const k in f) $('#am-'+k).value=f[k];
-  $('#am-pin').value=''; $('#am-aktif').checked=m.aktif!==false; $('#am-nipp').readOnly=!!m.nipp;
+  $('#am-pin').value=''; $('#am-aktif').checked=m.aktif!==false; $('#am-verif').checked=m.verif!==false; $('#am-nipp').readOnly=!!m.nipp;
   $('#am-pin').placeholder = m.nipp?'Kosongkan bila PIN tidak diganti':'Minimal 6 karakter';
 }
 $('#l-admin').addEventListener('click',()=>{ $('#adm').hidden=false; $('#a-login').hidden=false; $('#a-body').hidden=true; $('#a-msg').textContent=''; });
@@ -1336,7 +1461,7 @@ $('#a-login').addEventListener('submit',async e=>{
   e.preventDefault(); $('#a-msg').textContent='Memeriksa…';
   try{
     const r=await api('adminLogin',{pin:$('#a-pin').value});
-    AD.token=r.token; AD.members=r.members; $('#a-login').hidden=true; $('#a-body').hidden=false; $('#a-msg').textContent='';
+    AD.token=r.token; AD.members=r.members; AD.stasiun=r.stasiun||[]; $('#a-login').hidden=true; $('#a-body').hidden=false; $('#a-msg').textContent='';
     $('#a-office-st').textContent=r.officeName?`Folder terpasang: ${r.officeName}`:'Belum diatur.';
     $('#a-must').hidden=!r.mustChange; renderAdmin(); fillMember({});
   }catch(err){ $('#a-msg').textContent=(err&&err.message)||'Gagal.'; }
@@ -1346,7 +1471,7 @@ $('#am-reset').addEventListener('click',()=>fillMember({}));
 $('#a-mform').addEventListener('submit',async e=>{
   e.preventDefault(); const g=k=>$('#am-'+k).value;
   try{
-    const r=await api('adminSaveMember',{token:AD.token,member:{nipp:g('nipp'),nama:g('nama'),jabatan:g('jabatan'),unit:g('unit'),daop:g('daop'),abbr:g('abbr'),pin:g('pin'),aktif:$('#am-aktif').checked}});
+    const r=await api('adminSaveMember',{token:AD.token,member:{nipp:g('nipp'),nama:g('nama'),jabatan:g('jabatan'),unit:g('unit'),daop:g('daop'),abbr:g('abbr'),pin:g('pin'),aktif:$('#am-aktif').checked,verif:$('#am-verif').checked}});
     AD.members=r.members; renderAdmin(); fillMember({}); $('#am-msg').textContent='Anggota tersimpan.';
   }catch(err){ $('#am-msg').textContent=(err&&err.message)||'Gagal menyimpan.'; }
 });
@@ -1357,6 +1482,28 @@ $('#a-office-save').addEventListener('click',async()=>{
 $('#a-pin-save').addEventListener('click',async()=>{
   try{ const r=await api('adminChangePin',{token:AD.token,newPin:$('#a-pin-new').value}); AD.token=r.token; $('#a-pin-new').value=''; $('#a-pin-st').textContent='PIN admin sudah diganti.'; $('#a-must').hidden=true; }
   catch(err){ $('#a-pin-st').textContent=(err&&err.message)||'Gagal.'; }
+});
+
+/* daftar stasiun (admin) */
+function renderStasiunAdmin(){
+  $('#st-list').innerHTML=AD.stasiun.map(s=>`<div class="mrow" style="align-items:flex-start"><div><b>${esc(s.abbr)}</b>${s.utama?' <span class="note">(stasiun utama)</span>':''}<div class="note">${esc(s.unit)} ${esc(s.daop)}</div><div class="note">Folder kantor: ${s.folder?esc(s.folder):'<i>belum ada (hanya unduh)</i>'}</div>
+    <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap"><input type="text" data-stfolder="${esc(s.sid)}" placeholder="Tempel alamat folder Drive kantor" style="min-width:220px;flex:1" aria-label="Folder kantor ${esc(s.abbr)}"><button class="btn sm" type="button" data-stsave="${esc(s.sid)}">Simpan folder</button>${s.folder?`<button class="btn sm" type="button" data-stclear="${esc(s.sid)}">Kosongkan</button>`:''}${s.utama?'':`<button class="btn sm" type="button" data-stedit="${esc(s.sid)}">Ubah data</button>`}</div></div></div>`).join('');
+}
+$('#st-list').addEventListener('click',async e=>{
+  const sv=e.target.closest('[data-stsave]'), cl=e.target.closest('[data-stclear]'), ed=e.target.closest('[data-stedit]');
+  try{
+    if(sv||cl){
+      const sid=(sv||cl).dataset.stsave||(cl&&cl.dataset.stclear), url=sv?$(`[data-stfolder="${sid}"]`).value:'';
+      if(sv&&!url.trim()){ $('#st-msg').textContent='Tempel alamat folder dulu.'; return; }
+      const r=await api('adminSetStationOffice',{token:AD.token,sid,url}); AD.stasiun=r.stasiun; renderStasiunAdmin(); $('#st-msg').textContent=sv?'Folder kantor terpasang.':'Folder dikosongkan.';
+    }
+    if(ed){ const s=AD.stasiun.find(x=>x.sid===ed.dataset.stedit); $('#st-sid').value=s.sid; $('#st-abbr').value=s.abbr; $('#st-unit').value=s.unit; $('#st-daop').value=s.daop; $('#st-abbr').focus(); }
+  }catch(err){ $('#st-msg').textContent=(err&&err.message)||'Gagal.'; }
+});
+$('#st-form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  try{ const r=await api('adminSaveStation',{token:AD.token,stasiun:{sid:$('#st-sid').value,abbr:$('#st-abbr').value,unit:$('#st-unit').value,daop:$('#st-daop').value}}); AD.stasiun=r.stasiun; $('#st-sid').value=''; $('#st-abbr').value=''; $('#st-unit').value=''; $('#st-daop').value=''; renderAdmin(); $('#st-msg').textContent='Stasiun tersimpan.'; }
+  catch(err){ $('#st-msg').textContent=(err&&err.message)||'Gagal.'; }
 });
 
 /* roster (admin) */
@@ -1419,10 +1566,10 @@ async function stLoad(){
   try{
     const r=await api('adminStatus',{token:AD.token,month:mv}); ST.month=mv; ST.list=r.anggota; $('#s-msg').textContent='';
     const yes=v=>v?'<span style="color:#1a7f4b">✓</span>':'<span style="color:#c0392b">✗</span>';
-    let h=`<div class="rtab"><table><thead><tr><th>Nama</th><th>Jadwal</th><th>Foto dinas</th><th>Kartu</th><th>Absen</th><th>Ket.</th><th>PDF</th><th></th></tr></thead><tbody>`;
+    let h=`<div class="rtab"><table><thead><tr><th>Nama</th><th>Stasiun</th><th>Jadwal</th><th>Foto dinas</th><th>Kartu</th><th>Absen</th><th>Ket.</th><th>PDF</th><th></th></tr></thead><tbody>`;
     r.anggota.forEach((a,i)=>{
       const warn=[]; if(a.tgl) warn.push(a.tgl+' cek tanggal'); if(a.bukti) warn.push(a.bukti+' bukti kurang');
-      h+=`<tr><td class="nm" title="NIPP ${esc(a.nipp)}">${a.siap?'✅ ':''}${esc(a.nama)}</td><td>${a.isi}/${a.hari}</td><td>${a.lengkap}/${a.dinas}${warn.length?`<br><small style="color:#c0392b">${esc(warn.join(', '))}</small>`:''}</td><td>${yes(a.kartu)}</td><td>${yes(a.absen)}</td><td>${a.catatan?`${a.catatan-a.catatanKosong}/${a.catatan}`:'-'}</td><td>${a.pdf?`<small>${esc(a.pdf.at)}</small>`:'<span style="color:#c0392b">belum</span>'}</td><td style="white-space:nowrap"><button class="btn sm" type="button" data-help="${i}">Bantu isi</button>${a.pdf?` <button class="btn sm" type="button" data-getpdf="${i}">Unduh PDF</button>`:''}</td></tr>`;
+      h+=`<tr><td class="nm" title="NIPP ${esc(a.nipp)}">${a.siap?'✅ ':''}${esc(a.nama)}</td><td>${esc(a.stasiun)}</td><td>${a.isi}/${a.hari}</td><td>${a.lengkap}/${a.dinas}${warn.length?`<br><small style="color:#c0392b">${esc(warn.join(', '))}</small>`:''}</td><td>${yes(a.kartu)}</td><td>${yes(a.absen)}</td><td>${a.catatan?`${a.catatan-a.catatanKosong}/${a.catatan}`:'-'}</td><td>${a.pdf?`<small>${esc(a.pdf.at)}</small>`:'<span style="color:#c0392b">belum</span>'}</td><td style="white-space:nowrap"><button class="btn sm" type="button" data-help="${i}">Bantu isi</button>${a.pdf?` <button class="btn sm" type="button" data-getpdf="${i}">Unduh PDF</button>`:''}</td></tr>`;
     });
     h+=`</tbody></table></div>`;
     const sp=r.anggota.filter(a=>a.siap).length, kp=r.anggota.filter(a=>a.pdf).length;
@@ -1440,7 +1587,7 @@ async function stGetPdf(a,note){
   const parts=[]; let total=1;
   for(let i=0;i<total;i++){
     note(`${a.nama}: bagian ${i+1}…`);
-    let r; for(let tr=0;;tr++){ try{ r=await api('adminGetPdf',{token:AD.token,nipp:a.nipp,month:ST.month,part:i}); break; }catch(e){ if(e&&e.net&&tr<2){ await sleep(1500); continue; } throw e; } }
+    let r; for(let tr=0;;tr++){ try{ r=await api('adminGetPdf',{token:AD.token,nipp:a.nipp,sid:a.sid,month:ST.month,part:i}); break; }catch(e){ if(e&&e.net&&tr<2){ await sleep(1500); continue; } throw e; } }
     total=r.total; parts.push(Uint8Array.from(atob(r.data),c=>c.charCodeAt(0))); if(i===0) a._name=r.name;
   }
   saveBlob(new Blob(parts,{type:'application/pdf'}),a._name||`IMO_${a.nipp}_${ST.month}.pdf`);
@@ -1452,11 +1599,11 @@ $('#s-hasil').addEventListener('click',async e=>{
     if(all){ all.disabled=true; for(const a of ST.list){ if(!a.pdf) continue; await stGetPdf(a,t=>$('#s-msg').textContent=t); await sleep(700); } $('#s-msg').textContent='Semua PDF diunduh.'; all.disabled=false; }
     if(h){
       const a=ST.list[+h.dataset.help];
-      const r=await api('adminImpersonate',{token:AD.token,nipp:a.nipp});
+      const r=await api('adminImpersonate',{token:AD.token,nipp:a.nipp,sid:a.sid});
       const [y,m]=ST.month.split('-').map(Number); state.y=y; state.m=m; state.months={};
       $('#adm').hidden=true; AD.token=''; $('#a-pin').value='';
       await afterLogin(r,a.nipp,false);
-      $('#who').textContent=`Admin membantu: ${r.profile.nama} · ${r.profile.nipp}`;
+      $('#who').textContent=`Admin membantu: ${r.profile.nama} · ${r.profile.nipp} · ${r.profile.abbr}`;
       toast('Kamu bekerja atas nama '+r.profile.nama+'. Tekan Keluar bila selesai.');
     }
   }catch(err){ $('#s-msg').textContent=(err&&err.message)||'Gagal.'; }
@@ -1480,7 +1627,7 @@ async function boot(){
   let s=null; try{ s=JSON.parse(localStorage.getItem('imo.sess')||'null'); }catch(e){}
   if(s&&s.nipp&&s.token){
     $('#l-msg').textContent='Masuk otomatis…';
-    try{ const r=await api('login',{nipp:s.nipp,token:s.token}); $('#l-msg').textContent=''; await afterLogin(r,s.nipp,true); }
+    try{ const r=await api('login',{nipp:s.nipp,token:s.token,sid:s.sid||''}); $('#l-msg').textContent=''; await afterLogin(r,s.nipp,true); }
     catch(e){ $('#l-msg').textContent=(e&&e.net)?'Tidak ada sambungan internet.':''; try{ if(e&&e.code) localStorage.removeItem('imo.sess'); }catch(x){} }
   }
 }
