@@ -164,7 +164,11 @@ details summary{cursor:pointer;font-weight:700}
 #toast[hidden]{display:none}
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .25s}}
 
+header.top .hl{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+header.top .home{flex:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);display:grid;place-items:center;color:inherit;text-decoration:none;background:var(--bg)}
+header.top .home:hover{background:var(--line)}
 header.top .hd{min-width:0;flex:1}
+@media (max-width:560px){header.top{flex-wrap:wrap}header.top .hl{flex-basis:100%}header.top .hr{width:100%;justify-content:space-between}header.top #stsel{flex:1;max-width:none!important}}
 header.top .hr{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:start center;overflow:auto;padding:max(24px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px))}
 .gate[hidden]{display:none}
@@ -197,7 +201,7 @@ input[type=password]{width:100%;min-width:0;background:var(--bg);border:1px soli
 <div class="app">
   <header class="top">
     <div class="logo" aria-hidden="true">IMO</div>
-    <div class="hd"><h1>Penyusun IMO</h1><p id="who">Laporan kegiatan pengoperasian bulanan</p></div>
+    <div class="hl"><a class="home" href="https://catkaujungtimur.github.io/home/" aria-label="Beranda" title="Beranda"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg></a><div class="hd"><h1>Penyusun IMO</h1><p id="who">Laporan kegiatan pengoperasian bulanan</p></div></div>
     <div class="hr"><select id="stsel" hidden aria-label="Stasiun yang sedang dikerjakan" style="max-width:190px;font-size:14px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit"></select><span class="chip na" id="sync" hidden></span><button class="btn sm" id="retry" type="button" hidden>Kirim ulang</button><button class="btn sm" id="logout" type="button" hidden>Keluar</button></div>
   </header>
 
@@ -696,12 +700,12 @@ function storePhoto(t,url,gdate){
   slotSet(mo,t,ref);
   if(t.kind==='day'){
     const o=mo.days[t.d];
-    if(t.k==='g'){ o.gdate=gdate||''; delete o.gok; }
+    if(t.k==='g'){ o.gdate=gdate||''; o.gx=gdate?1:0; delete o.gok; }
     lastSaved={d:t.d,k:t.k};
   }
   if(CLOUD){
     enqueue('Foto',async()=>{
-      const r=await api('putPhoto',{...auth(),month:mk,target:targetOf(t),data:url.split(',')[1],gdate:gdate||''});
+      const r=await api('putPhoto',{...auth(),month:mk,target:targetOf(t),data:url.split(',')[1],gdate:gdate||'',gx:gdate?1:0});
       const m2=state.months[mk];
       if(m2 && slotGet(m2,t)===ref) slotSet(m2,t,r.fileId);
       dataMem.set(r.fileId,url); idbPut(r.fileId,url); pendingSet.delete(ref);
@@ -716,18 +720,42 @@ function storePhoto(t,url,gdate){
 function removePhoto(t){
   const mo=cur(), mk=key();
   slotSet(mo,t,'');
-  if(t.kind==='day' && t.k==='g'){ const o=mo.days[t.d]; if(o){ delete o.gdate; delete o.gok; } }
+  if(t.kind==='day' && t.k==='g'){ const o=mo.days[t.d]; if(o){ delete o.gdate; delete o.gx; delete o.gok; } }
   if(CLOUD) enqueue('Hapus foto',()=>api('delPhoto',{...auth(),month:mk,target:targetOf(t)}));
   lastSaved=null; refreshAll(); resetResult();
 }
 
 /* ---------- aturan tanggal foto ---------- */
+/* Tanggal pengambilan foto dari data EXIF di dalam berkas JPEG (DateTimeOriginal). Kosong bila tidak ada. */
+async function exifDate(file){
+  try{
+    if(!/jpe?g/i.test(file.type||'') && !/\.jpe?g$/i.test(file.name||'')) return '';
+    const buf=await file.slice(0,262144).arrayBuffer(), v=new DataView(buf);
+    if(v.getUint16(0)!==0xFFD8) return '';
+    let p=2;
+    while(p+10<v.byteLength){
+      const mk=v.getUint16(p), len=v.getUint16(p+2);
+      if(mk===0xFFE1 && v.getUint32(p+4)===0x45786966){
+        const t=p+10, le=v.getUint16(t)===0x4949, g16=o=>v.getUint16(t+o,le), g32=o=>v.getUint32(t+o,le);
+        const ifd=off=>{ const n=g16(off), m={}; for(let i=0;i<n;i++){ const e=off+2+i*12; m[g16(e)]={cnt:g32(e+4),vo:g32(e+8)}; } return m; };
+        const i0=ifd(g32(4)); if(!i0[0x8769]) return '';
+        const ex=ifd(i0[0x8769].vo), ent=ex[0x9003]||ex[0x9004]; if(!ent||ent.cnt<10) return '';
+        let s=''; for(let k=0;k<10;k++) s+=String.fromCharCode(v.getUint8(t+ent.vo+k));
+        const m=s.match(/^(\d{4}):(\d\d):(\d\d)$/); if(!m||+m[1]<2000) return '';
+        return `${m[1]}-${m[2]}-${m[3]}`;
+      }
+      if((mk&0xFF00)!==0xFF00 || len<2) break;
+      p+=2+len;
+    }
+  }catch(e){}
+  return '';
+}
 function dateWarn(d){
   const o=cur().days[d];
-  if(!o||!o.t||!TYPES[o.t].dinas||!o.g||!o.gdate||o.gok) return '';
+  if(!o||!o.t||!TYPES[o.t].dinas||!o.g||!o.gdate||!o.gx||o.gok) return '';
   const diff=dayDiff(o.gdate,isoDay(d));
   if(diff===0 || (o.t==='MALAM' && diff===1)) return '';
-  return `Berkas foto kegiatan ini tercatat bertanggal <b>${fmtISO(o.gdate)}</b>, sedangkan halaman ini untuk <b>${fmtISO(isoDay(d))}</b>. Pastikan kamu memilih tanggal yang benar.`;
+  return `Foto kegiatan ini diambil pada <b>${fmtISO(o.gdate)}</b>, sedangkan halaman ini untuk <b>${fmtISO(isoDay(d))}</b>. Pastikan kamu memilih tanggal yang benar.`;
 }
 function dayState(d){
   const o=cur().days[d]; if(!o||!o.t) return {cls:'na',txt:'Belum diisi',mk:'·'};
@@ -864,7 +892,7 @@ function renderHot(){
   const o=cur().days[curDay]||{}, t=o.t; let h='';
   if(t && TYPES[t].dinas){
     const pc=(bx,by,bw,bh)=>`left:${bx/W*100}%;top:${by/H*100}%;width:${bw/W*100}%;height:${bh/H*100}%`;
-    h=`<button class="hs" type="button" data-hs="s" style="${pc(328,77,475,719)}" aria-label="Unggah serah terima dinas"></button>`+
+    h=`<button class="hs" type="button" data-hs="s" style="${pc(283,79,564,717)}" aria-label="Unggah serah terima dinas"></button>`+
       `<button class="hs" type="button" data-hs="g" style="${pc(867,157,562,562)}" aria-label="Unggah foto kegiatan"></button>`;
   }
   $('#hot').innerHTML=h;
@@ -1035,8 +1063,7 @@ $('#picker').addEventListener('change',async e=>{
   try{
     const edge = t.kind==='day' ? (t.k==='s'?3000:1200) : t.kind==='file' ? FILES.find(x=>x.k===t.k).max : 2000;
     const url=await shrink(f,edge,t.kind==='day'&&t.k==='g'?.8:(t.kind==='day'&&t.k==='s'?.95:.85));
-    const wa=(f.name||'').match(/^(?:IMG|VID)-(\d{4})(\d{2})(\d{2})-WA\d+/i)||(f.name||'').match(/WhatsApp (?:Image|Video) (\d{4})-(\d{2})-(\d{2})/i);
-    const gdate=(t.kind==='day'&&t.k==='g') ? (wa?`${wa[1]}-${wa[2]}-${wa[3]}`:(f.lastModified?isoFromMs(f.lastModified):'')) : '';
+    const gdate=(t.kind==='day'&&t.k==='g') ? await exifDate(f) : '';
     storePhoto(t,url,gdate);
   }catch(err){ toast('Foto tidak bisa dibaca. Coba pilih file gambar lain.'); }
 });
@@ -1122,10 +1149,11 @@ async function drawCover(x){
   x.textAlign='left'; x.font='bold 23px '+FONT;
   rows.forEach((r,i)=>{ const y=327+i*39.5; x.fillText(r[0],118,y); x.fillText(': '+(r[1]||''),277,y); });
 }
-async function drawPhotoPage(x,title,ref,box){
+async function drawPhotoPage(x,title,ref,box,trim){
   x.fillStyle='#fff'; x.fillRect(0,0,W,H);
   x.fillStyle='#000'; x.textAlign='center'; x.textBaseline='middle'; x.font='bold 40px '+FONT; x.fillText(title,728,85);
-  const img=await loadImg(ref);
+  let img=await loadImg(ref); if(img&&trim) img=await trimmedImg(img);
+  if(typeof box==='function') box=box(img);
   if(img) putImg(x,img,...box,false,false); else missingBox(x,...box,'Belum diunggah');
 }
 function frame(x,x0,y0,x1,y1){ x.strokeStyle='#000'; x.lineWidth=1.6; x.strokeRect(x0,y0,x1-x0,y1-y0); }
@@ -1137,14 +1165,24 @@ const trimImgCache=new Map();
 function trimmedImg(img){
   if(!img) return Promise.resolve(null);
   if(trimImgCache.has(img.__ref)) return trimImgCache.get(img.__ref);
-  const tr=trimWhite(img), ref=img.__ref+'_t'; dataMem.set(ref,tr.url);
+  const tr=trimWhite(img);
+  if(tr.w*tr.h>img.width*img.height*0.94){ const q=Promise.resolve(img); trimImgCache.set(img.__ref,q); return q; }
+  const ref=img.__ref+'_t'; dataMem.set(ref,tr.url);
   const p=new Promise(ok=>{ const i=new Image(); i.onload=()=>{ i.__ref=ref; ok(i); }; i.onerror=()=>ok(img); i.src=tr.url; });
   trimImgCache.set(img.__ref,p); return p;
 }
+/* Kotak yang mengikuti bentuk foto, sebesar mungkin di dalam area (cx,cy,mw,mh). */
+function hugFit(cx,cy,mw,mh,def){
+  return img=>{
+    if(!img||!img.width) return def;
+    const k=Math.min(mw/img.width,mh/img.height), w=Math.round(img.width*k), h=Math.round(img.height*k);
+    return [Math.round(cx-w/2),Math.round(cy-h/2),w,h];
+  };
+}
 /* Kotak foto serah terima: setinggi kolom dan mengikuti bentuk fotonya, jadi garis kotak mepet ke form. */
 function hugBox(img){
-  const cx=565, cy=447.5, mw=556, mh=735;
-  if(!img||!img.width) return [cx-260,cy-mh/2,520,mh];
+  const cx=565, cy=438.5, mw=556, mh=715;
+  if(!img||!img.width) return [cx-252,cy-mh/2,504,mh];
   const k=Math.min(mw/img.width,mh/img.height), w=Math.round(img.width*k), h=Math.round(img.height*k);
   return [Math.round(cx-w/2),Math.round(cy-h/2),w,h];
 }
@@ -1188,7 +1226,7 @@ function pageList(){
   const mo=cur(), L=[];
   L.push({n:'Sampul',draw:drawCover});
   L.push({n:'Smartcard',draw:x=>drawPhotoPage(x,'FOTO SMARTCARD',mo.files.card,[360,190,736,560])});
-  L.push({n:'Absensi',draw:x=>drawPhotoPage(x,'ABSENSI/DAFTAR HADIR BULAN '+MONTHS[state.m-1]+' '+state.y,mo.files.absen,[147,135,1170,585])});
+  L.push({n:'Absensi',draw:x=>drawPhotoPage(x,'ABSENSI/DAFTAR HADIR BULAN '+MONTHS[state.m-1]+' '+state.y,mo.files.absen,hugFit(728,462,1400,690,[60,120,1336,680]),true)});
   for(let d=1; d<=nDays(); d++){ const o=mo.days[d]; if(!o||!o.t) continue; L.push({n:pad(d)+' '+o.t,draw:x=>drawDay(x,d)}); }
   mo.notes.forEach((n,i)=>L.push({n:'Keterangan '+(i+1),draw:x=>drawNote(x,n)}));
   return L;
